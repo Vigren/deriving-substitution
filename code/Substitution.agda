@@ -15,72 +15,101 @@ Context = List Type
 Deriv : Set₁
 Deriv = Context → Type → Set
 
+Sub : Deriv → Context → Context → Set
+Sub Tm Γ Δ = ∀ {A} → A ∈ Γ → Tm Δ A
+
 variable
   A B C : Type
   Γ Δ Κ : Context
 
-Sub : Deriv → Context → Context → Set
-Sub Tm Γ Δ = ∀ {A} → A ∈ Γ → Tm Δ A
-
-record Subst (Tm : Deriv) : Set where
-  infixl 8  _/_
-  infixl  10 _↑
-
+record Simple (Tm : Deriv) : Set where
   field
-    var    : A ∈ Γ → Tm Γ A
+    var    : Sub Tm Γ Γ
     weaken : Tm Γ A → Tm (B ∷ Γ) A
-    _/_    : Tm Γ A → Sub Tm Γ Δ → Tm Δ A
+
+  infixl  10 _↑
 
   -- Lifts / extends a substitution so a new topmost variable,
   -- of type `A`, is mapped to a new topmost variable.
-  _↑ : Sub Tm Γ Δ → Sub Tm (A ∷ Γ) (A ∷ Δ)
-  (_ ↑) (here refl) = var (here refl)
-  (s ↑) (there i) = weaken (s i)
+  extend _↑ : Sub Tm Γ Δ → Sub Tm (A ∷ Γ) (A ∷ Δ)
+  extend _ (here refl) = var (here refl)
+  extend s (there i)   = weaken (s i)
+  _↑ = extend
+
 
   -- The identity (unit?) substitution
   id : Sub Tm Γ Γ
-  id = var
+  id {Γ = _ ∷ _} = id ↑
 
   wk : Sub Tm Γ (B ∷ Γ)
-  wk {Γ = _ ∷ _} = weaken ∘ id ↑
+  wk {Γ = _ ∷ _} = weaken ∘ id
 
-  _⊙_ : Sub Tm Γ Δ → Sub Tm Δ Κ → Sub Tm Γ Κ
-  Γ-Δ ⊙ Δ-Κ = λ i → var i / Γ-Δ / Δ-Κ
+record Application (Tm₁ Tm₂ : Deriv) : Set where
+  field
+    app : Sub Tm₂ Γ Δ → Tm₁ Γ A → Tm₁ Δ A
+
+  _⊙_ : Sub Tm₂ Δ Κ → Sub Tm₁ Γ Δ → Sub Tm₁ Γ Κ
+  Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
+
+
+record Subst (Tm : Deriv) : Set where
+  field
+    simple : Simple Tm
+    application : Application Tm Tm
+
+  open Simple      simple      public
+  open Application application public
+
 
 record Lift (Tm₁ Tm₂ : Deriv) : Set where
   field
+    simple : Simple Tm₁
     lift : Tm₁ Γ A → Tm₂ Γ A
+
+  open Simple simple public
 
 module VarSubst where
   subst : Subst _∋_
   subst = record
-    { var    = F.id
-    ; weaken = there
-    ; _/_    = λ i s → s i
-    }
+    { simple = record
+      { var    = F.id
+      ; weaken = there
+      }
+    ; application = record { app = λ f x → f x }}
 
   open Subst subst public
 
 record TermSubst (Tm : Deriv) : Set₁ where
   field
     var : Γ ∋ A → Tm Γ A
-    app : ∀ {Tm' : Deriv} → Lift Tm' Tm
-        → ∀ {Γ Δ} → Sub Tm' Γ Δ
-        → Tm Γ A
-        → Tm Δ A
+    apply : ∀ {Tm' : Deriv} → Lift Tm' Tm
+          → ∀ {A Γ Δ} → Sub Tm' Γ Δ
+          → Tm Γ A
+          → Tm Δ A
+
+  module Lifted {Tm' : Deriv} (lift : Lift Tm' Tm) where
+    application : Application Tm Tm'
+    application = record { app = apply lift }
 
   varLift : Lift _∋_ Tm
-  varLift = record { lift = var }
+  varLift = record { simple = VarSubst.simple
+                   ; lift   = var
+                   }
 
   rename : Sub _∋_ Γ Δ → Tm Γ A → Tm Δ A
-  rename = app varLift
+  rename = apply varLift
+
+  simple : Simple Tm
+  simple = record { var    = var
+                  ; weaken = rename VarSubst.wk
+                  }
 
   idLift : Lift Tm Tm
-  idLift = record { lift = F.id }
+  idLift = record { simple = simple
+                  ; lift = F.id
+                  }
 
   subst : Subst Tm
-  subst = record
-    { var    = var
-    ; weaken = rename VarSubst.wk
-    ; _/_    = flip (app idLift)
-    }
+  subst = record { simple      = simple
+                 ; application = Lifted.application idLift
+                 }
