@@ -24,7 +24,7 @@ variable
 
 record Simple (Tm : Deriv) : Set where
   field
-    var    : Sub Tm Γ Γ
+    var    : A ∈ Γ → Tm Γ A
     weaken : Tm Γ A → Tm (B ∷ Γ) A
 
   infixl  10 _↑
@@ -39,7 +39,7 @@ record Simple (Tm : Deriv) : Set where
 
   -- The identity (unit?) substitution
   id : Sub Tm Γ Γ
-  id {Γ = _ ∷ _} = id ↑
+  id = var
 
   wk : Sub Tm Γ (B ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id

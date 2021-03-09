@@ -27,10 +27,8 @@ record LemmasSimple (Tm : Deriv) : Set where
   _≗ₛ_ : (s₁ s₂ : Sub Tm Γ Δ) → Set
   s₁ ≗ₛ s₂ = ∀ {A} → s₁ {A} ≗ s₂ {A}
 
-  -- A lifted identity substitution is
-  -- the identity substitution of one more thing.
-  ↑-id : (id {Γ} ↑) {A} ≡ id {A ∷ Γ}
-  ↑-id = refl
+  id≡var : id {Γ} {A = A} ≡ var
+  id≡var = refl
 
   ↑-cong : s₁ ≗ₛ s₂
          → extend {A = A} s₁ ≗ₛ extend s₂
@@ -45,9 +43,11 @@ record Lemmas-weaken-var (Tm : Deriv) : Set where
 
   field weaken-var : weaken {Γ} {A} {B} ∘ var ≗ var ∘ there
 
-  id≗var : id {Γ} ≗ₛ var
-  id≗var (here refl) = refl
-  id≗var (there i) = trans (cong weaken $ id≗var i) (weaken-var i)
+  -- A lifted identity substitution is
+  -- the identity substitution of one more thing.
+  ↑-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
+  ↑-id (here refl) = refl
+  ↑-id (there i) = weaken-var i
 
   -- Possible: wk ≗ var ∘ there
 
