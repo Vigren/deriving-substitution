@@ -1,7 +1,6 @@
 module Example where
 open import Data.List
 open import Data.List.Membership.Propositional
-open import Function as F hiding (_∋_)
 
 data Type : Set where
   _⇒_ : Type → Type → Type
@@ -13,7 +12,7 @@ infix 4 _⊢_
 infixr 6 _⇒_
 infixl 7 _+_
 
-data _⊢_ : Context → Type → Set where
+data _⊢_ (Γ : Context) : Type → Set where
   var : (x : Γ ∋ A) → Γ ⊢ A
   app : (f : Γ ⊢ A ⇒ B) (x : Γ ⊢ A) → Γ ⊢ B
   abs : (b : A ∷ Γ ⊢ B) → (Γ ⊢ A ⇒ B)
@@ -24,7 +23,7 @@ data _⊢_ : Context → Type → Set where
     → (lb : A ∷ Γ ⊢ C) (rb : B ∷ Γ ⊢ C)
     → Γ ⊢ C
 
-module ⊢App {Tm : Deriv} (l : Lift Tm _⊢_) where
+module Manual {Tm : Deriv} (l : Lift Tm _⊢_) where
   open Lift l hiding (var)
 
   sub : ∀ {A Γ Δ } → Sub Tm Γ Δ → Γ ⊢ A → Δ ⊢ A
@@ -37,5 +36,10 @@ module ⊢App {Tm : Deriv} (l : Lift Tm _⊢_) where
                                  l→ (sub (s ↑) lb)
                                  r→ sub (s ↑) rb
 
-⊢-is-subst-term : TermSubst _⊢_
-⊢-is-subst-term = record { var = var ; apply = ⊢App.sub }
+manTs : TermSubst _⊢_
+manTs = record { var = var ; apply = Manual.sub }
+
+module Generated where
+  open import Tactic
+  genTs : TermSubst (_⊢_)
+  genTs = deriveSubst

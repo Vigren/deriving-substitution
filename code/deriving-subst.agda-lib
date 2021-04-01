@@ -1,0 +1,4 @@
+name: deriving-subst
+include: .
+depend: standard-library
+        agda-prelude
