@@ -8,7 +8,7 @@ data Type : Set where
   _⇒_ : Type → Type → Type
   _+_ : Type → Type → Type
 
-open import Tactic (Type)
+open import Tactic
 open import Substitution (Type)
 
 module Doub where

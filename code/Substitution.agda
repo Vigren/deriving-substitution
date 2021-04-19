@@ -16,7 +16,7 @@ Deriv : Set₁
 Deriv = Context → Type → Set
 
 Sub : Deriv → Context → Context → Set
-Sub Tm Γ Δ = ∀ {A} → A ∈ Γ → Tm Δ A
+Sub Tm Γ Δ = ∀ {A} → Γ ∋ A → Tm Δ A
 
 variable
   A B C : Type
@@ -24,7 +24,7 @@ variable
 
 record Simple (Tm : Deriv) : Set where
   field
-    var    : A ∈ Γ → Tm Γ A
+    var    : Γ ∋ A → Tm Γ A
     weaken : Tm Γ A → Tm (B ∷ Γ) A
 
   infixl  10 _↑
@@ -61,10 +61,10 @@ record Subst (Tm : Deriv) : Set where
   open Application application public
 
 
-record Lift (Tm₁ Tm₂ : Deriv) : Set where
+record Embed (Tm₁ Tm₂ : Deriv) : Set where
   field
     simple : Simple Tm₁
-    lift : Tm₁ Γ A → Tm₂ Γ A
+    embed : Tm₁ Γ A → Tm₂ Γ A
 
   open Simple simple public
 
@@ -82,34 +82,34 @@ module VarSubst where
 record TermSubst (Tm : Deriv) : Set₁ where
   field
     var : Γ ∋ A → Tm Γ A
-    apply : ∀ {Tm' : Deriv} → Lift Tm' Tm
+    apply : ∀ {Tm' : Deriv} → Embed Tm' Tm
           → ∀ {A Γ Δ} → Sub Tm' Γ Δ
           → Tm Γ A
           → Tm Δ A
 
-  module Lifted {Tm' : Deriv} (lift : Lift Tm' Tm) where
+  module Embedded {Tm' : Deriv} (e : Embed Tm' Tm) where
     application : Application Tm Tm'
-    application = record { app = apply lift }
+    application = record { app = apply e }
 
-  varLift : Lift _∋_ Tm
-  varLift = record { simple = VarSubst.simple
-                   ; lift   = var
-                   }
+  varEmbed : Embed _∋_ Tm
+  varEmbed = record { simple = VarSubst.simple
+                    ; embed  = var
+                    }
 
   rename : Sub _∋_ Γ Δ → Tm Γ A → Tm Δ A
-  rename = apply varLift
+  rename = apply varEmbed
 
   simple : Simple Tm
   simple = record { var    = var
                   ; weaken = rename VarSubst.wk
                   }
 
-  idLift : Lift Tm Tm
-  idLift = record { simple = simple
-                  ; lift = F.id
-                  }
+  idEmbed : Embed Tm Tm
+  idEmbed = record { simple = simple
+                   ; embed = F.id
+                   }
 
   subst : Subst Tm
   subst = record { simple      = simple
-                 ; application = Lifted.application idLift
+                 ; application = Embedded.application idEmbed
                  }

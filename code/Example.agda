@@ -23,11 +23,11 @@ data _⊢_ (Γ : Context) : Type → Set where
     → (lb : A ∷ Γ ⊢ C) (rb : B ∷ Γ ⊢ C)
     → Γ ⊢ C
 
-module Manual {Tm : Deriv} (l : Lift Tm _⊢_) where
-  open Lift l hiding (var)
+module Manual {Tm : Deriv} (l : Embed Tm _⊢_) where
+  open Embed l hiding (var)
 
-  sub : ∀ {A Γ Δ } → Sub Tm Γ Δ → Γ ⊢ A → Δ ⊢ A
-  sub s (var x)                = lift (s x)
+  sub : ∀ {A Γ Δ} → Sub Tm Γ Δ → Γ ⊢ A → Δ ⊢ A
+  sub s (var x)                = embed (s x)
   sub s (app f x)              = app (sub s f) (sub s x)
   sub s (abs b)                = abs (sub (s ↑) b)
   sub s (left l)               = left (sub s l)

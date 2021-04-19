@@ -45,9 +45,9 @@ record Lemmas-weaken-var (Tm : Deriv) : Set where
 
   -- A lifted identity substitution is
   -- the identity substitution of one more thing.
-  ↑-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
-  ↑-id (here refl) = refl
-  ↑-id (there i) = weaken-var i
+  extend-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
+  extend-id (here refl) = refl
+  extend-id (there i) = weaken-var i
 
   -- Possible: wk ≗ var ∘ there
 

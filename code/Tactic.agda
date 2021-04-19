@@ -14,10 +14,10 @@ module _ (`Typ : Type) where
   `Context   = def₁ (quote Context) `Typ
   `Deriv     = def₁ (quote Deriv) `Typ
   `TermSubst = def₃ (quote TermSubst) `Typ
-  `Lift      = def₃ (quote Lift) `Typ
+  `Embed     = def₃ (quote Embed) `Typ
   `Sub       = def₄ (quote Sub) `Typ
-  `extend    = def₂ (quote Lift.extend)
-  `lift      = def₂ (quote Lift.lift)
+  `extend    = def₂ (quote Embed.extend)
+  `embed     = def₂ (quote Embed.embed)
 
   -- Gets the first suitable var constructor.
   findVar : Term → List Name → TC Name
@@ -46,7 +46,7 @@ module _ (`Typ : Type) where
             ; _    → nothing
             }
 
-      -- | Argument is maybe recursive and needs n weakenings.
+      -- | Argument is maybe recursive and needs n extensions.
       recLevel : Type → Maybe Nat
       recLevel (def₂ dName ctxs _ ) =
         ifYes tmName == dName
@@ -58,7 +58,7 @@ module _ (`Typ : Type) where
   buildVarBody : {n : Nat} → Vec (String × Arg Type × Maybe Nat) n
                → Term
   buildVarBody {n = argLen } _ =
-    `lift (var₀ (argLen + 4)) (var₁ (argLen + 0) (var₀ 0))
+    `embed (var₀ (argLen + 4)) (var₁ (argLen + 0) (var₀ 0))
 
   buildBody : {n : Nat} → Name → Name
                   → Vec (String × Arg Type × Maybe Nat) n
@@ -68,20 +68,20 @@ module _ (`Typ : Type) where
           (λ ix (_ , at , r) → buildConArg ix at r)
           conTelRec
     where
-      `L `s : Term
-      `L = weaken argLen (var₀ 4)
+      `e `s : Term
+      `e = weaken argLen (var₀ 4)
       `s = weaken argLen (var₀ 0)
       nth : Nat → Term
       nth ix = var₀ ix
       nExtended : Nat → Term
       nExtended 0       = `s
-      nExtended (suc n) = `extend `L (nExtended n)
+      nExtended (suc n) = `extend `e (nExtended n)
       -- TODO: hArg ↦ unknown is maybe a problem? Γ, A could be visible
       -- Makes the ix:th-argument for the constructor in the clause body.
       buildConArg : Nat → Arg Type → Maybe Nat → Arg Term
       buildConArg ix (vArg _) nothing  = vArg $ (nth ix)
       buildConArg ix (vArg _) (just b) =
-        vArg $ def₃ applyName `L (nExtended b) (nth ix)
+        vArg $ def₃ applyName `e (nExtended b) (nth ix)
       buildConArg _  (arg ai _) _      = arg ai unknown
 
   buildClause : Name → Name → Name → Name → TC Clause
@@ -89,7 +89,7 @@ module _ (`Typ : Type) where
     let staticPartTel : Telescope
         staticPartTel =
           ("Tm" , hArg (`Deriv))
-          ∷ ("L" , vArg (`Lift (var₀ 0) (def₀ tmName)))
+          ∷ ("e" , vArg (`Embed (var₀ 0) (def₀ tmName)))
           ∷ ("T" , (hArg `Typ))
           ∷ ("Γ" , (hArg `Context))
           ∷ ("Δ" , (hArg `Context))
