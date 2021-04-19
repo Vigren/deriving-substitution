@@ -86,6 +86,7 @@ module _ (`Typ : Type) where
 
   buildClause : Name → Name → Name → Name → TC Clause
   buildClause tmName varName applyName conName = do
+    -- The initial, static part of the apply telescope
     let staticPartTel : Telescope
         staticPartTel =
           ("Tm" , hArg (`Deriv))
@@ -96,25 +97,29 @@ module _ (`Typ : Type) where
           ∷ ("s" , vArg (`Sub (var₀ 4) (var₀ 1) (var₀ 0)))
           ∷ []
 
+    -- If a data type argument is a parameter,
+    -- then we need to "redirect" the constructor argument
+    -- to the corresponding one in the apply function.
     #params ← conParams conName
     conTyp ← inContextTel staticPartTel $
       let unPi : Type → TC Type
           unPi = λ { (pi _ (abs _ rs)) → return rs
                     ; _ → typeErrorS "Panic: Parameter but no top pi type."
                     }
-      in case #params of λ
-        -- No parameters, no need to redirect anything
-        { 0 → normalise =<< getType conName
-        -- Context is parameter, redirect to apply functions.
-        ; 1 → weaken 2 <$> (unPi =<< normalise =<< getType conName)
-        -- Both context and type is parameter, redirect to apply functions.
-        ; 2 →
-            weaken 3 <$> (unPi =<<
-            weaken 2 <$> (unPi =<< normalise =<< getType conName))
+      in do
+        t ← normalise =<< getType conName
+        case #params of λ
+          -- No parameters, no need to redirect anything
+          { 0 → return t
+          -- Context is parameter, redirect to static Γ.
+          ; 1 → substTerm [ safe (var₀ 2) tt ] <$> unPi t
+          -- Both context and type is parameter, redirect to static Γ, T
+          ; 2 → substTerm ( safe (var₀ 3) tt
+                          ∷ (safe (var₀ 2) tt)
+                          ∷ []) <$> (unPi =<< unPi t)
 
-        ; n → typeErrorS "Panic: Too many params"
-        }
-
+          ; n → typeErrorS "Panic: Too many params"
+          }
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $
                   "Constructor doesn't produce Tm"
