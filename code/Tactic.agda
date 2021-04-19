@@ -120,20 +120,22 @@ module _ (`Typ : Type) where
 
           ; n → typeErrorS "Panic: Too many params"
           }
+
+    -- conTel is the dynamic part of the telescope,
+    -- which we get by decomposing the Tm constructor.
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $
                   "Constructor doesn't produce Tm"
-                  <> " or result type context is not a variable."
 
-    let conTelRec : Vec (String × Arg Type × Maybe Nat) (length conTel)
-        conTelRec = analyseCon (listToVec conTel) resCtx tmName
-
-    let matchTel : Telescope
-        matchTel = staticPartTel ++ conTel
+    let tel : Telescope
+        tel = staticPartTel ++ conTel
 
     let pat : List (Arg Pattern)
         pat = weaken (length conTel) (telePat staticPartTel)
               ++ [ vArg (con conName (telePat conTel)) ]
+
+    let conTelRec : Vec (String × Arg Type × Maybe Nat) (length conTel)
+        conTelRec = analyseCon (listToVec conTel) resCtx tmName
 
     -- Assuming just apply args + constructor args are in scope
     let body : Term
@@ -141,7 +143,8 @@ module _ (`Typ : Type) where
                then buildVarBody conTelRec
                else buildBody applyName conName conTelRec
 
-    return (clause matchTel pat body)
+
+    return (clause tel pat body)
 
 
   buildApply : Term → Name → Name → List Name → TC ⊤
