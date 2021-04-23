@@ -25,7 +25,7 @@ data _⊢_ (Γ : Context) : Type → Set where
     → Γ ⊢ C
 
 module Manual {Dr : Deriv} (l : Embed Dr _⊢_) where
-  open Embed l hiding (var)
+  open Embed l
 
   sub : ∀ {A Γ Δ} → Map Dr Γ Δ → Γ ⊢ A → Δ ⊢ A
   sub m (var x)                = embed (m x)

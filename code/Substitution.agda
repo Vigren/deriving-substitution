@@ -4,7 +4,7 @@ open import Data.List
 open import Data.List.Membership.Propositional
 open import Data.List.Relation.Unary.Any
   using (Any; here; there)
-open import Function as F using (flip ; _∘_)
+open import Function as Fun using (flip ; _∘_)
 
 Context : Set
 Context = List Type
@@ -27,7 +27,7 @@ open Variables
 
 record Simple (Dr : Deriv) : Set where
   field
-    var    : Γ ∋ A → Dr Γ A
+    id     : Map Dr Γ Γ
     weaken : Dr Γ A → Dr (B ∷ Γ) A
 
   infixl  10 _↑
@@ -35,14 +35,9 @@ record Simple (Dr : Deriv) : Set where
   -- Lifts / extends a derivation map so a new topmost variable
   -- is mapped to a new topmost variable, and the rest is weakened.
   extend _↑ : Map Dr Γ Δ → Map Dr (A ∷ Γ) (A ∷ Δ)
-  extend _ (here refl) = var (here refl)
+  extend _ (here refl) = id (here refl)
   extend s (there i)   = weaken (s i)
   _↑ = extend
-
-
-  -- The identity map
-  id : Map Dr Γ Γ
-  id = var
 
   wk : Map Dr Γ (A ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
@@ -75,7 +70,7 @@ module VarSubst where
   subst : Subst _∋_
   subst = record
     { simple = record
-      { var    = F.id
+      { id     = Fun.id
       ; weaken = there
       }
     ; application = record { app = λ f x → f x }}
@@ -99,13 +94,13 @@ record TermSubst (Tm : Deriv) : Set₁ where
   rename = apply varEmbed
 
   simple : Simple Tm
-  simple = record { var    = var
+  simple = record { id    = var
                   ; weaken = rename VarSubst.wk
                   }
 
   idEmbed : Embed Tm Tm
   idEmbed = record { simple = simple
-                   ; embed = F.id
+                   ; embed  = Fun.id
                    }
 
   tmSubst : Subst Tm

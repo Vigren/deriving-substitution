@@ -2,8 +2,8 @@ module Lemmas (Type : Set) where
 
 open import Substitution (Type)
 open Variables
-import Function as F
-open F using (_$_ ; _∘_)
+import Function as Fun
+open Fun using (_$_ ; _∘_)
 open import Data.List
 open import Data.List.Membership.Propositional
 open import Data.List.Membership.Setoid using (_∈_)
@@ -28,9 +28,6 @@ record LemmasSimple (Tm : Deriv) : Set where
   _≗ₘ_ : (m₁ m₂ : Map Tm Γ Δ) → Set
   m₁ ≗ₘ m₂ = ∀ {A} → m₁ {A} ≗ m₂ {A}
 
-  id≡var : id {Γ} {A = A} ≡ var
-  id≡var = refl
-
   ↑-cong : m₁ ≗ₘ m₂
          → extend {A = A} m₁ ≗ₘ extend m₂
   ↑-cong _ (here refl)   = refl
@@ -42,13 +39,13 @@ record Lemmas-weaken-var (Tm : Deriv) : Set where
   open LemmasSimple lemmas-simple
   open Simple simple
 
-  field weaken-var : weaken {Γ} {A} {B} ∘ var ≗ var ∘ there
+  field weaken-id : weaken {Γ} {A} {B} ∘ id ≗ id ∘ there
 
   -- An extended identity substitution is
   -- the identity substitution of one more thing.
   extend-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
   extend-id (here refl) = refl
-  extend-id (there i) = weaken-var i
+  extend-id (there i) = weaken-id i
 
   -- Possible: wk ≗ var ∘ there
 
