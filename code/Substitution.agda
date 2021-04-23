@@ -42,22 +42,15 @@ record Simple (Dr : Deriv) : Set where
   wk : Map Dr Γ (A ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
 
-record Application (Dr₁ Dr₂ : Deriv) : Set where
-  field
-    app : Map Dr₂ Γ Δ → Dr₁ Γ A → Dr₁ Δ A
-
-  _⊙_ : Map Dr₂ Δ Κ → Map Dr₁ Γ Δ → Map Dr₁ Γ Κ
-  Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
-
-
 record Subst (Dr : Deriv) : Set where
   field
     simple : Simple Dr
-    application : Application Dr Dr
+    app : Map Dr Γ Δ → Dr Γ A → Dr Δ A
 
-  open Simple      simple      public
-  open Application application public
+  open Simple simple public
 
+  _⊙_ : Map Dr Δ Κ → Map Dr Γ Δ → Map Dr Γ Κ
+  Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
 
 record Embed (Dr₁ Dr₂ : Deriv) : Set where
   field
@@ -73,7 +66,7 @@ module VarSubst where
       { id     = Fun.id
       ; weaken = there
       }
-    ; application = record { app = λ f x → f x }}
+    ; app = λ f x → f x }
 
   open Subst subst public
 
@@ -103,7 +96,10 @@ record TermSubst (Tm : Deriv) : Set₁ where
                    ; embed  = Fun.id
                    }
 
+  subst : Map Tm Γ Δ → Tm Γ A → Tm Δ A
+  subst = apply idEmbed
+
   tmSubst : Subst Tm
-  tmSubst = record { simple      = simple
-                   ; application = record { app = apply idEmbed }
+  tmSubst = record { simple = simple
+                   ; app    = subst
                    }
