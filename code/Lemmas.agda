@@ -20,19 +20,19 @@ record LemmasSimple (Tm : Deriv) : Set where
   open Simple simple
 
   variable
-    s₁ s₂ : Sub Tm Γ Δ
+    m₁ m₂ : Map Tm Γ Δ
 
-  infix 4 _≗ₛ_
+  infix 4 _≗ₘ_
 
-  -- Pointwise equality on Tm-substitutions
-  _≗ₛ_ : (s₁ s₂ : Sub Tm Γ Δ) → Set
-  s₁ ≗ₛ s₂ = ∀ {A} → s₁ {A} ≗ s₂ {A}
+  -- Pointwise equality on Tm-substitution mappings.
+  _≗ₘ_ : (m₁ m₂ : Map Tm Γ Δ) → Set
+  m₁ ≗ₘ m₂ = ∀ {A} → m₁ {A} ≗ m₂ {A}
 
   id≡var : id {Γ} {A = A} ≡ var
   id≡var = refl
 
-  ↑-cong : s₁ ≗ₛ s₂
-         → extend {A = A} s₁ ≗ₛ extend s₂
+  ↑-cong : m₁ ≗ₘ m₂
+         → extend {A = A} m₁ ≗ₘ extend m₂
   ↑-cong _ (here refl)   = refl
   ↑-cong s₁≗s₂ (there i) = cong weaken (s₁≗s₂ i)
 
@@ -44,7 +44,7 @@ record Lemmas-weaken-var (Tm : Deriv) : Set where
 
   field weaken-var : weaken {Γ} {A} {B} ∘ var ≗ var ∘ there
 
-  -- A lifted identity substitution is
+  -- An extended identity substitution is
   -- the identity substitution of one more thing.
   extend-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
   extend-id (here refl) = refl

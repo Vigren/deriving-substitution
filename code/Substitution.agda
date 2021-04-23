@@ -6,17 +6,18 @@ open import Data.List.Relation.Unary.Any
   using (Any; here; there)
 open import Function as F using (flip ; _∘_)
 
-_∋_ : {A : Set} → List A → A → Set
-_∋_ = flip _∈_
-
 Context : Set
 Context = List Type
+
+_∋_ : Context → Type → Set
+_∋_ = flip _∈_
 
 Deriv : Set₁
 Deriv = Context → Type → Set
 
-Sub : Deriv → Context → Context → Set
-Sub Tm Γ Δ = ∀ {A} → Γ ∋ A → Tm Δ A
+-- Type preserving maps
+Map : Deriv → Context → Context → Set
+Map Tm Γ Δ = ∀ {A} → Γ ∋ A → Tm Δ A
 
 module Variables where
   variable
@@ -24,49 +25,49 @@ module Variables where
     Γ Δ Κ : Context
 open Variables
 
-record Simple (Tm : Deriv) : Set where
+record Simple (Dr : Deriv) : Set where
   field
-    var    : Γ ∋ A → Tm Γ A
-    weaken : Tm Γ A → Tm (B ∷ Γ) A
+    var    : Γ ∋ A → Dr Γ A
+    weaken : Dr Γ A → Dr (B ∷ Γ) A
 
   infixl  10 _↑
 
-  -- Lifts / extends a substitution so a new topmost variable,
-  -- of type `A`, is mapped to a new topmost variable.
-  extend _↑ : Sub Tm Γ Δ → Sub Tm (A ∷ Γ) (A ∷ Δ)
+  -- Lifts / extends a derivation map so a new topmost variable
+  -- is mapped to a new topmost variable, and the rest is weakened.
+  extend _↑ : Map Dr Γ Δ → Map Dr (A ∷ Γ) (A ∷ Δ)
   extend _ (here refl) = var (here refl)
   extend s (there i)   = weaken (s i)
   _↑ = extend
 
 
-  -- The identity (unit?) substitution
-  id : Sub Tm Γ Γ
+  -- The identity map
+  id : Map Dr Γ Γ
   id = var
 
-  wk : Sub Tm Γ (B ∷ Γ)
+  wk : Map Dr Γ (A ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
 
-record Application (Tm₁ Tm₂ : Deriv) : Set where
+record Application (Dr₁ Dr₂ : Deriv) : Set where
   field
-    app : Sub Tm₂ Γ Δ → Tm₁ Γ A → Tm₁ Δ A
+    app : Map Dr₂ Γ Δ → Dr₁ Γ A → Dr₁ Δ A
 
-  _⊙_ : Sub Tm₂ Δ Κ → Sub Tm₁ Γ Δ → Sub Tm₁ Γ Κ
+  _⊙_ : Map Dr₂ Δ Κ → Map Dr₁ Γ Δ → Map Dr₁ Γ Κ
   Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
 
 
-record Subst (Tm : Deriv) : Set where
+record Subst (Dr : Deriv) : Set where
   field
-    simple : Simple Tm
-    application : Application Tm Tm
+    simple : Simple Dr
+    application : Application Dr Dr
 
   open Simple      simple      public
   open Application application public
 
 
-record Embed (Tm₁ Tm₂ : Deriv) : Set where
+record Embed (Dr₁ Dr₂ : Deriv) : Set where
   field
-    simple : Simple Tm₁
-    embed : Tm₁ Γ A → Tm₂ Γ A
+    simple : Simple Dr₁
+    embed : Dr₁ Γ A → Dr₂ Γ A
 
   open Simple simple public
 
@@ -84,21 +85,17 @@ module VarSubst where
 record TermSubst (Tm : Deriv) : Set₁ where
   field
     var : Γ ∋ A → Tm Γ A
-    apply : ∀ {Tm' : Deriv} → Embed Tm' Tm
-          → ∀ {A Γ Δ} → Sub Tm' Γ Δ
+    apply : ∀ {Dr : Deriv} → Embed Dr Tm
+          → ∀ {A Γ Δ} → Map Dr Γ Δ
           → Tm Γ A
           → Tm Δ A
-
-  module Embedded {Tm' : Deriv} (e : Embed Tm' Tm) where
-    application : Application Tm Tm'
-    application = record { app = apply e }
 
   varEmbed : Embed _∋_ Tm
   varEmbed = record { simple = VarSubst.simple
                     ; embed  = var
                     }
 
-  rename : Sub _∋_ Γ Δ → Tm Γ A → Tm Δ A
+  rename : Map _∋_ Γ Δ → Tm Γ A → Tm Δ A
   rename = apply varEmbed
 
   simple : Simple Tm
@@ -111,7 +108,7 @@ record TermSubst (Tm : Deriv) : Set₁ where
                    ; embed = F.id
                    }
 
-  subst : Subst Tm
-  subst = record { simple      = simple
-                 ; application = Embedded.application idEmbed
-                 }
+  tmSubst : Subst Tm
+  tmSubst = record { simple      = simple
+                   ; application = record { app = apply idEmbed }
+                   }

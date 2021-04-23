@@ -15,7 +15,7 @@ module _ (`Typ : Type) where
   `Deriv     = def₁ (quote Deriv) `Typ
   `TermSubst = def₃ (quote TermSubst) `Typ
   `Embed     = def₃ (quote Embed) `Typ
-  `Sub       = def₄ (quote Sub) `Typ
+  `Map       = def₄ (quote Map) `Typ
   `extend    = def₂ (quote Embed.extend)
   `embed     = def₂ (quote Embed.embed)
 
@@ -68,13 +68,13 @@ module _ (`Typ : Type) where
           (λ ix (_ , at , r) → buildConArg ix at r)
           conTelRec
     where
-      `e `s : Term
+      `e `m : Term
       `e = weaken argLen (var₀ 4)
-      `s = weaken argLen (var₀ 0)
+      `m = weaken argLen (var₀ 0)
       nth : Nat → Term
       nth ix = var₀ ix
       nExtended : Nat → Term
-      nExtended 0       = `s
+      nExtended 0       = `m
       nExtended (suc n) = `extend `e (nExtended n)
       -- TODO: hArg ↦ unknown is maybe a problem? Γ, A could be visible
       -- Makes the ix:th-argument for the constructor in the clause body.
@@ -89,12 +89,12 @@ module _ (`Typ : Type) where
     -- The initial, static part of the apply telescope
     let staticPartTel : Telescope
         staticPartTel =
-          ("Tm" , hArg (`Deriv))
+          ("Dr" , hArg (`Deriv))
           ∷ ("e" , vArg (`Embed (var₀ 0) (def₀ tmName)))
           ∷ ("T" , (hArg `Typ))
           ∷ ("Γ" , (hArg `Context))
           ∷ ("Δ" , (hArg `Context))
-          ∷ ("s" , vArg (`Sub (var₀ 4) (var₀ 1) (var₀ 0)))
+          ∷ ("m" , vArg (`Map (var₀ 4) (var₀ 1) (var₀ 0)))
           ∷ []
 
     -- If a data type argument is a parameter,
@@ -123,6 +123,7 @@ module _ (`Typ : Type) where
 
     -- conTel is the dynamic part of the telescope,
     -- which we get by decomposing the Tm constructor.
+
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $
                   "Constructor doesn't produce Tm"

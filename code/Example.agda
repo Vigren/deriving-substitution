@@ -24,18 +24,18 @@ data _⊢_ (Γ : Context) : Type → Set where
     → (lb : A ∷ Γ ⊢ C) (rb : B ∷ Γ ⊢ C)
     → Γ ⊢ C
 
-module Manual {Tm : Deriv} (l : Embed Tm _⊢_) where
+module Manual {Dr : Deriv} (l : Embed Dr _⊢_) where
   open Embed l hiding (var)
 
-  sub : ∀ {A Γ Δ} → Sub Tm Γ Δ → Γ ⊢ A → Δ ⊢ A
-  sub s (var x)                = embed (s x)
-  sub s (app f x)              = app (sub s f) (sub s x)
-  sub s (abs b)                = abs (sub (s ↑) b)
-  sub s (left l)               = left (sub s l)
-  sub s (right r)              = right (sub s r)
-  sub s (case l+r l→ lb r→ rb) = case (sub s l+r)
-                                 l→ (sub (s ↑) lb)
-                                 r→ sub (s ↑) rb
+  sub : ∀ {A Γ Δ} → Map Dr Γ Δ → Γ ⊢ A → Δ ⊢ A
+  sub m (var x)                = embed (m x)
+  sub m (app f x)              = app (sub m f) (sub m x)
+  sub m (abs b)                = abs (sub (m ↑) b)
+  sub m (left l)               = left (sub m l)
+  sub m (right r)              = right (sub m r)
+  sub m (case l+r l→ lb r→ rb) = case (sub m l+r)
+                                 l→ (sub (m ↑) lb)
+                                 r→ sub (m ↑) rb
 
 manTs : TermSubst _⊢_
 manTs = record { var = var ; apply = Manual.sub }
