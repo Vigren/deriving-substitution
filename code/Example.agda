@@ -7,6 +7,7 @@ data Type : Set where
   _+_ : Type → Type → Type
 
 open import Substitution (Type)
+open Variables
 
 infix 4 _⊢_
 infixr 6 _⇒_
@@ -40,6 +41,6 @@ manTs : TermSubst _⊢_
 manTs = record { var = var ; apply = Manual.sub }
 
 module Generated where
-  open import Tactic
+  open import Tactic using (deriveSubst)
   genTs : TermSubst (_⊢_)
   genTs = deriveSubst

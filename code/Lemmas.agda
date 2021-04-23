@@ -1,6 +1,7 @@
 module Lemmas (Type : Set) where
 
 open import Substitution (Type)
+open Variables
 import Function as F
 open F using (_$_ ; _∘_)
 open import Data.List

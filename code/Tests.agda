@@ -10,6 +10,7 @@ data Type : Set where
 
 open import Tactic
 open import Substitution (Type)
+open Variables
 
 module Double where
   data Tm (Γ : Context) : Type → Set where

@@ -18,9 +18,11 @@ Deriv = Context → Type → Set
 Sub : Deriv → Context → Context → Set
 Sub Tm Γ Δ = ∀ {A} → Γ ∋ A → Tm Δ A
 
-variable
-  A B C : Type
-  Γ Δ Κ : Context
+module Variables where
+  variable
+    A B C : Type
+    Γ Δ Κ : Context
+open Variables
 
 record Simple (Tm : Deriv) : Set where
   field
