@@ -23,21 +23,22 @@ data _⊢_ (Γ : Context) : Type → Set where
     → (lb : A ∷ Γ ⊢ C) (rb : B ∷ Γ ⊢ C)
     → Γ ⊢ C
 
-module Manual {Dr : Deriv} (l : Embed Dr _⊢_) where
-  open Embed l
+module Manual where
+  module _ {Dr : Deriv} (l : Embed Dr _⊢_) where
+    open Embed l
 
-  sub : ∀ {A Γ Δ} → Map Dr Γ Δ → Γ ⊢ A → Δ ⊢ A
-  sub m (var x)                = embed (m x)
-  sub m (app f x)              = app (sub m f) (sub m x)
-  sub m (abs b)                = abs (sub (m ↑) b)
-  sub m (left l)               = left (sub m l)
-  sub m (right r)              = right (sub m r)
-  sub m (case l+r l→ lb r→ rb) = case (sub m l+r)
-                                 l→ (sub (m ↑) lb)
-                                 r→ sub (m ↑) rb
+    sub : ∀ {A Γ Δ} → Map Dr Γ Δ → Γ ⊢ A → Δ ⊢ A
+    sub m (var x)                = embed (m x)
+    sub m (app f x)              = app (sub m f) (sub m x)
+    sub m (abs b)                = abs (sub (m ↑) b)
+    sub m (left l)               = left (sub m l)
+    sub m (right r)              = right (sub m r)
+    sub m (case l+r l→ lb r→ rb) = case (sub m l+r)
+                                  l→ (sub (m ↑) lb)
+                                  r→ sub (m ↑) rb
 
-manTs : TermSubst _⊢_
-manTs = record { var = var ; apply = Manual.sub }
+  manTs : TermSubst _⊢_
+  manTs = record { var = var ; apply = sub }
 
 module Generated where
   open import Tactic using (deriveSubst)
