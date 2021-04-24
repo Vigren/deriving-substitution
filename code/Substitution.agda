@@ -87,8 +87,8 @@ record TermSubst (Tm : Deriv) : Set₁ where
   rename = apply varEmbed
 
   simple : Simple Tm
-  simple = record { id    = var
-                  ; weaken = rename VarSubst.wk
+  simple = record { id     = var
+                  ; weaken = rename there
                   }
 
   idEmbed : Embed Tm Tm
