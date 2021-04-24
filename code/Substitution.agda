@@ -1,9 +1,9 @@
 module Substitution (Type : Set) where
-open import Agda.Builtin.Equality
+open import Agda.Builtin.Equality public using (refl)
 open import Data.List
 open import Data.List.Membership.Propositional
-open import Data.List.Relation.Unary.Any
-  using (Any; here; there)
+import Data.List.Relation.Unary.Any as UAny
+open UAny public using (here; there)
 open import Function as Fun using (flip ; _∘_)
 
 Context : Set

@@ -1,6 +1,5 @@
 module Example where
 open import Data.List
-open import Data.List.Membership.Propositional
 
 data Type : Set where
   _⇒_ : Type → Type → Type
