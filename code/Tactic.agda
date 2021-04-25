@@ -169,10 +169,11 @@ macro
   deriveSubst tsHole = do
       varHole ← newMeta!
       applyHole ← newMeta!
-      (def₂ tmSubName `Typ (def₀ tmName)) ← normalise =<< inferType tsHole
+      (def₂ (quote TermSubst) `Typ (def₀ tmName)) ←
+            normalise =<< inferType tsHole
         where _ → typeErrorS ""
 
-      tsCon ← recordConstructor $ tmSubName
+      tsCon ← recordConstructor $ (quote TermSubst)
       unify tsHole $ con₂ tsCon varHole applyHole
 
       varName ← getConstructors tmName >>= findVar `Typ varHole
