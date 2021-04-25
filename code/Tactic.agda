@@ -176,8 +176,8 @@ macro
       tsCon ← recordConstructor $ (quote TermSubst)
       unify tsHole $ con₂ tsCon varHole applyHole
 
-      varName ← getConstructors tmName >>= findVar `Typ varHole
-
-      getConstructors tmName >>= buildApply `Typ applyHole tmName varName
+      conNames ← getConstructors tmName
+      varName ← findVar `Typ varHole conNames
+      buildApply `Typ applyHole tmName varName conNames
 
       return tt
