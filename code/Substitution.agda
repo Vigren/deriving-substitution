@@ -39,6 +39,10 @@ record Simple (Dr : Deriv) : Set where
   extend s (there i)   = weaken (s i)
   _↑ = extend
 
+  extendN : {Κ : Context} → Map Dr Γ Δ → Map Dr (Κ ++ Γ) (Κ ++ Δ)
+  extendN {Κ = []}    = Fun.id
+  extendN {Κ = _ ∷ _} = extend ∘ extendN
+
   wk : Map Dr Γ (A ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
 

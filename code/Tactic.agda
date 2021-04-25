@@ -16,7 +16,7 @@ module _ (`Typ : Type) where
   `TermSubst = def₃ (quote TermSubst) `Typ
   `Embed     = def₃ (quote Embed) `Typ
   `Map       = def₄ (quote Map) `Typ
-  `extend    = def₂ (quote Embed.extend)
+  `extendN   = def₂ (quote Embed.extendN)
   `embed     = def₂ (quote Embed.embed)
 
   -- Gets the first suitable var constructor.
@@ -26,63 +26,47 @@ module _ (`Typ : Type) where
       (unify varHole (con₀ cn) >> return cn)
       (typeErrorS "No suitable var constructor found.")
 
-  -- Given a vector of constructor arguments and index of the context variable
-  -- in result types, returns telescope with whether arguments are recursive
-  -- and how many variables they bind (that is, one for each cons).
-  analyseCon : {ix : Nat} → Vec (String × Arg Type) ix
-                          → Term → Name
-                          → (Vec (String × Arg Type × Maybe Nat) ix)
-  analyseCon {.zero} [] _ _ = []
-  analyseCon ix@{suc _} ((x , tArg@(arg _ t)) ∷ tArgs) resCtxVar tmName =
-    (x , tArg , recLevel t) ∷ analyseCon tArgs resCtxVar tmName
+  -- TODO: Could instead check if its unifiable with ∀ {Κ}. Κ ++ resCtx
+  analyseArg : Nat → Arg Type → Term → Name → Bool
+  analyseArg ix (arg _ (def₂ dName ctxs _)) resCtx tmName =
+    dName ==? tmName && isWeakened ctxs
     where
-      recLevel' : Type → Maybe Nat
-      recLevel' typ =
-        ifYes (weaken ix typ == resCtxVar)
-        then return 0
+      isWeakened : Type → Bool
+      isWeakened typ =
+        ifYes (weaken ix typ == resCtx)
+        then true
         else case typ of λ
-            { (con (quote List._∷_) (hArg _ ∷ hArg _ ∷ vArg _ ∷ vArg ctxs ∷ []))
-                    → suc <$> recLevel' ctxs
-            ; _    → nothing
+            { (con (quote List._∷_)
+                   (hArg _ ∷ hArg _ ∷ vArg _ ∷ vArg ctxs ∷ []))
+                   → isWeakened ctxs
+            ; _    → false
             }
-
-      -- | Argument is maybe recursive and needs n extensions.
-      recLevel : Type → Maybe Nat
-      recLevel (def₂ dName ctxs _ ) =
-        ifYes tmName == dName
-        then recLevel' ctxs
-        else nothing
-      recLevel _ = nothing
+  analyseArg _ _ _ _ = false
 
 
-  buildVarBody : {n : Nat} → Vec (String × Arg Type × Maybe Nat) n
-               → Term
+  buildVarBody : {n : Nat} → Vec (Arg Type) n → Term
   buildVarBody {n = argLen } _ =
     `embed (var₀ (argLen + 4)) (var₁ (argLen + 0) (var₀ 0))
 
   buildBody : {n : Nat} → Name → Name
-                  → Vec (String × Arg Type × Maybe Nat) n
-                  → Term
-  buildBody {n = argLen} applyName conName conTelRec =
-    con conName $ vecToList $ mapIx
-          (λ ix (_ , at , r) → buildConArg ix at r)
-          conTelRec
+                  → Vec (Arg Type) n
+                  → Type → Name → Term
+  buildBody {n = argLen} applyName conName argTypes resCtx tmName =
+    con conName $ vecToList $ mapIx buildConArg argTypes
     where
       `e `m : Term
       `e = weaken argLen (var₀ 4)
       `m = weaken argLen (var₀ 0)
       nth : Nat → Term
       nth ix = var₀ ix
-      nExtended : Nat → Term
-      nExtended 0       = `m
-      nExtended (suc n) = `extend `e (nExtended n)
       -- TODO: hArg ↦ unknown is maybe a problem? Γ, A could be visible
-      -- Makes the ix:th-argument for the constructor in the clause body.
-      buildConArg : Nat → Arg Type → Maybe Nat → Arg Term
-      buildConArg ix (vArg _) nothing  = vArg $ (nth ix)
-      buildConArg ix (vArg _) (just b) =
-        vArg $ def₃ applyName `e (nExtended b) (nth ix)
-      buildConArg _  (arg ai _) _      = arg ai unknown
+      -- Makes the ix:th constructor in the clause body.
+      buildConArg : Nat → Arg Type → Arg Term
+      buildConArg ix (vArg t) = vArg $
+        if analyseArg ix (vArg t) resCtx tmName
+        then nth ix
+        else def₃ applyName `e (`extendN `e `m) (nth ix)
+      buildConArg _  (arg ai _) = arg ai unknown
 
   buildClause : Name → Name → Name → Name → TC Clause
   buildClause tmName varName applyName conName = do
@@ -123,7 +107,6 @@ module _ (`Typ : Type) where
 
     -- conTel is the dynamic part of the telescope,
     -- which we get by decomposing the Tm constructor.
-
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $
                   "Constructor doesn't produce Tm"
@@ -135,15 +118,12 @@ module _ (`Typ : Type) where
         pat = weaken (length conTel) (telePat staticPartTel)
               ++ [ vArg (con conName (telePat conTel)) ]
 
-    let conTelRec : Vec (String × Arg Type × Maybe Nat) (length conTel)
-        conTelRec = analyseCon (listToVec conTel) resCtx tmName
-
     -- Assuming just apply args + constructor args are in scope
     let body : Term
-        body = ifYes conName == varName
-               then buildVarBody conTelRec
-               else buildBody applyName conName conTelRec
-
+        body = let argTypes = listToVec (map snd conTel)
+               in ifYes conName == varName
+                  then buildVarBody argTypes
+                  else buildBody applyName conName argTypes resCtx tmName
 
     return (clause tel pat body)
 
