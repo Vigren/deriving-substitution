@@ -27,7 +27,7 @@ module Manual where
   module _ {Dr : Deriv} (l : Embed Dr _⊢_) where
     open Embed l
 
-    sub : ∀ {A Γ Δ} → Map Dr Γ Δ → Γ ⊢ A → Δ ⊢ A
+    sub : ∀ {Γ Δ} → Map Dr Γ Δ → ∀ {A} → Γ ⊢ A → Δ ⊢ A
     sub m (var x)                = embed (m x)
     sub m (app f x)              = app (sub m f) (sub m x)
     sub m (abs b)                = abs (sub (m ↑) b)

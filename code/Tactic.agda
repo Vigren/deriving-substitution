@@ -46,7 +46,7 @@ module _ (`Typ : Type) where
 
   buildVarBody : {n : Nat} → Vec (Arg Type) n → Term
   buildVarBody {n = argLen } _ =
-    `embed (var₀ (argLen + 4)) (var₁ (argLen + 0) (var₀ 0))
+    `embed (var₀ (argLen + 4)) (var₁ (argLen + 1) (var₀ 0))
 
   buildBody : {n : Nat} → Name → Name
                   → Vec (Arg Type) n
@@ -56,7 +56,7 @@ module _ (`Typ : Type) where
     where
       `e `m : Term
       `e = weaken argLen (var₀ 4)
-      `m = weaken argLen (var₀ 0)
+      `m = weaken argLen (var₀ 1)
       nth : Nat → Term
       nth ix = var₀ ix
       -- TODO: hArg ↦ unknown is maybe a problem? Γ, A could be visible
@@ -75,10 +75,10 @@ module _ (`Typ : Type) where
         staticPartTel =
           ("Dr" , hArg (`Deriv))
           ∷ ("e" , vArg (`Embed (var₀ 0) (def₀ tmName)))
-          ∷ ("T" , (hArg `Typ))
           ∷ ("Γ" , (hArg `Context))
           ∷ ("Δ" , (hArg `Context))
-          ∷ ("m" , vArg (`Map (var₀ 4) (var₀ 1) (var₀ 0)))
+          ∷ ("m" , vArg (`Map (var₀ 3) (var₀ 1) (var₀ 0)))
+          ∷ ("T" , (hArg `Typ))
           ∷ []
 
     -- If a data type argument is a parameter,
@@ -96,10 +96,10 @@ module _ (`Typ : Type) where
           -- No parameters, no need to redirect anything
           { 0 → return t
           -- Context is parameter, redirect to static Γ.
-          ; 1 → substTerm [ safe (var₀ 2) tt ] <$> unPi t
+          ; 1 → substTerm [ safe (var₀ 3) tt ] <$> unPi t
           -- Both context and type is parameter, redirect to static Γ, T
-          ; 2 → substTerm ( safe (var₀ 3) tt
-                          ∷ (safe (var₀ 2) tt)
+          ; 2 → substTerm ( safe (var₀ 0) tt
+                          ∷ (safe (var₀ 3) tt)
                           ∷ []) <$> (unPi =<< unPi t)
 
           ; n → typeErrorS "Panic: Too many params"
