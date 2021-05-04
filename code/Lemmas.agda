@@ -14,39 +14,114 @@ open import Relation.Binary.PropositionalEquality
 
 open ≡-Reasoning
 
-record LemmasSimple (Tm : Deriv) : Set where
-  field simple : Simple Tm
+-- Pointwise equality on maps.
+Eq : (Dr : Deriv) → (m₁ m₂ : Map Dr Γ Δ) → Set
+Eq _ m₁ m₂ = ∀ {A} → m₁ {A} ≗ m₂ {A}
 
-  open Simple simple
+record EmbedCong (Dr Sup : Deriv) : Set₁ where
+  field e : Embed Dr Sup
+  open Embed e public
 
-  variable
-    m₁ m₂ : Map Tm Γ Δ
+  _≗ᴰ_ : (_ _ : Map Dr Γ Δ) → Set
+  _≗ᴰ_ = Eq Dr
+  _≗^_ : (_ _ : Map Sup Γ Δ) → Set
+  _≗^_ = Eq Sup
 
-  infix 4 _≗ₘ_
+  extCong : ∀ {m₁ m₂ : Map Dr Γ Δ} → m₁ ≗ᴰ m₂
+          → ∀ {A} → extend m₁ {A} ≗ᴰ extend m₂
+  extCong m₁≗m₂ (here refl) = refl
+  extCong m₁≗m₂ (there i)   = cong weaken (m₁≗m₂ i)
 
-  -- Pointwise equality on Tm-substitution mappings.
-  _≗ₘ_ : (m₁ m₂ : Map Tm Γ Δ) → Set
-  m₁ ≗ₘ m₂ = ∀ {A} → m₁ {A} ≗ m₂ {A}
+  extCongN : {m₁ m₂ : Map Dr Γ Δ} → m₁ ≗ᴰ m₂
+           → ∀ {Κ} → extendN m₁ {Κ} ≗ᴰ extendN m₂
+  extCongN m₁≗m₂ {Κ = []} = m₁≗m₂
+  extCongN m₁≗m₂ {Κ = _ ∷ _} = extCong (extCongN m₁≗m₂)
 
-  ↑-cong : m₁ ≗ₘ m₂
-         → extend {A = A} m₁ ≗ₘ extend m₂
-  ↑-cong _ (here refl)   = refl
-  ↑-cong s₁≗s₂ (there i) = cong weaken (s₁≗s₂ i)
+  embedCong : {m₁ m₂ : Map Dr Γ Δ} → m₁ ≗ᴰ m₂
+            → (embed ∘ m₁) ≗^ (embed ∘ m₂)
+  embedCong m₁≗m₂ i = cong embed (m₁≗m₂ i)
 
-record Lemmas-weaken-var (Tm : Deriv) : Set where
-  field lemmas-simple : LemmasSimple Tm
+record EmbedId (Dr Sup : Deriv) : Set₁ where
+  field e : Embed Dr Sup
+  open Embed e public
+  field weaken-id : weaken {Γ} {B} {A} ∘ id ≗ id ∘ there
 
-  open LemmasSimple lemmas-simple
-  open Simple simple
+  _≗ᴰ_ : (_ _ : Map Dr Γ Δ) → Set
+  _≗ᴰ_ = Eq Dr
+  _≗^_ : (_ _ : Map Sup Γ Δ) → Set
+  _≗^_ = Eq Sup
 
-  field weaken-id : weaken {Γ} {A} {B} ∘ id ≗ id ∘ there
+  extId : extend {Γ} {Γ} id ≗ᴰ id {Γ = A ∷ Γ}
+  extId (here refl) = refl
+  extId (there i)   = weaken-id i
 
-  -- An extended identity substitution is
-  -- the identity substitution of one more thing.
-  extend-id : extend {Γ} id {A} ≗ id {A ∷ Γ}
-  extend-id (here refl) = refl
-  extend-id (there i) = weaken-id i
 
-  -- Possible: wk ≗ var ∘ there
+record TermSubstCong (Tm : Deriv) : Set₁ where
+  field ts : TermSubst Tm
+  open TermSubst ts
+  ApplyCong : {Dr : Deriv} → (e : Embed Dr Tm) → Set
+  ApplyCong {Dr} e = let open Embed e in
+            ∀ {Γ Δ} {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
+            → ∀ {A} → apply e m₁ {A} ≗ apply e m₂
 
-  -- Possible: (s₁ ≗ₛ var ∘ there) → (s₁ ↑) ≗ var ∘ there
+  field applyCong : {Dr : Deriv} (ec : EmbedCong Dr Tm)
+                  → ApplyCong (EmbedCong.e ec)
+  field applyId : {Dr : Deriv} → (ei : EmbedId Dr Tm)
+                → ApplyCong (EmbedId.e ei)
+                → (e+id≡v : ∀ {Γ A}
+                  → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var)
+                → ∀ {Γ A} → apply (EmbedId.e ei) {Γ} {Γ} (EmbedId.id ei) {A}
+                  ≗ Fun.id
+  -- TODO: Can be weakened if just needed for Tm weaken-id
+  field apply-var : ∀ {Dr} {e : Embed Dr Tm} {Γ Δ} {m : Map Dr Γ Δ} {A}
+                  → apply e m ∘ var {Γ} {A} ≗ Embed.embed e ∘ m
+
+  private
+    _≗ⱽ_ : (_ _ : Map _∋_ Γ Δ) → Set
+    _≗ⱽ_ = Eq _∋_
+    _≗ᵀ_ : (_ _ : Map Tm Γ Δ) → Set
+    _≗ᵀ_ = Eq Tm
+
+  module Var where
+    open VarSubst
+    private variable m₁ m₂ : Map _∋_ Γ Δ
+
+    e = record { simple = simple ; embed = var }
+    ec : EmbedCong _∋_ Tm
+    ec = record {e = e}
+
+    renameCong : m₁ ≗ⱽ m₂ → ∀ {A} → rename m₁ {A} ≗ rename m₂
+    renameCong = applyCong ec
+
+    ei : EmbedId _∋_ Tm
+    ei = record { e = e
+                ; weaken-id = λ _ → refl
+                }
+
+    renameId : rename {Γ} {Γ} id {A} ≗ Fun.id
+    renameId = applyId ei renameCong refl
+
+  module Term where
+    open Subst tmSubst
+    private variable m₁ m₂ : Map Tm Γ Δ
+
+    weaken-id : weaken {Γ} {A} {B} ∘ id ≗ id ∘ there
+    weaken-id = apply-var
+
+    e = record { simple = Subst.simple tmSubst
+               ; embed = Fun.id
+               }
+
+    ec : EmbedCong Tm Tm
+    ec = record { e = e }
+
+    substCong : m₁ ≗ᵀ m₂ → ∀ {A} → subst m₁ {A} ≗ subst m₂
+    substCong = applyCong ec
+
+    ei : EmbedId Tm Tm
+    ei = record { e = e
+                ; weaken-id = weaken-id
+                }
+
+    substId : subst {Γ} {Γ} id {A} ≗ Fun.id
+    substId = applyId ei substCong refl
