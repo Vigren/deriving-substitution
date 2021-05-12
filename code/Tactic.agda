@@ -33,7 +33,7 @@ module _ (`Typ : Type) where
     where
       isWeakened : Type → Bool
       isWeakened typ =
-        ifYes (weaken ix typ == resCtx)
+        ifYes (weaken (ix + 1) typ == resCtx)
         then true
         else case typ of λ
             { (con (quote List._∷_)
@@ -64,8 +64,8 @@ module _ (`Typ : Type) where
       buildConArg : Nat → Arg Type → Arg Term
       buildConArg ix (vArg t) = vArg $
         if analyseArg ix (vArg t) resCtx tmName
-        then nth ix
-        else def₃ applyName `e (`extendN `e `m) (nth ix)
+        then def₃ applyName `e (`extendN `e `m) (nth ix)
+        else nth ix
       buildConArg _  (arg ai _) = arg ai unknown
 
   buildClause : Name → Name → Name → Name → TC Clause

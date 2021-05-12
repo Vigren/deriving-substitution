@@ -21,10 +21,44 @@ module Double where
   ts : TermSubst Tm
   ts = deriveSubst
 
+module NoParam where
+  data Tm : Context → Type → Set where
+    var : Γ ∋ A → Tm Γ A
+    app : Tm Γ (B ⇒ A) → Tm Γ B → Tm Γ A
+
+  ts : TermSubst Tm
+  ts = deriveSubst
+
 module TwoParam where
   data Tm (Γ : Context) (A : Type) : Set where
     var : Γ ∋ A → Tm Γ A
     app : Tm Γ (B ⇒ A) → Tm Γ B → Tm Γ A
+
+  ts : TermSubst Tm
+  ts = deriveSubst
+
+module ContextConcatenation where
+  data Tm (Γ : Context) (A : Type) : Set where
+    var : Γ ∋ A → Tm Γ A
+    c : Tm ( A ∷ [ A ] ++ Γ) A → Tm Γ A
+
+  ts : TermSubst Tm
+  ts = deriveSubst
+
+module Constant where
+  data Tm (Γ : Context) : Type → Set where
+    var : Γ ∋ A → Tm Γ A
+    con : Nat → Tm Γ A → Tm Γ A
+
+  ts : TermSubst Tm
+  ts = deriveSubst
+
+
+-- A subterm that does not inherit parent scope
+module FreshScope where
+  data Tm (Γ : Context) : Type → Set where
+    var : Γ ∋ A → Tm Γ A
+    st : Tm (A ∷ []) A → Tm Γ A
 
   ts : TermSubst Tm
   ts = deriveSubst
