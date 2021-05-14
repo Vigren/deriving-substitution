@@ -44,7 +44,7 @@ record EmbedCong (Dr Sup : Deriv) : Set₁ where
 record EmbedId (Dr Sup : Deriv) : Set₁ where
   field e : Embed Dr Sup
   open Embed e public
-  field weaken-id : weaken {Γ} {B} {A} ∘ id ≗ id ∘ there
+  field weakenId : weaken {Γ} {B} {A} ∘ id ≗ id ∘ there
 
   _≗ᴰ_ : (_ _ : Map Dr Γ Δ) → Set
   _≗ᴰ_ = Eq Dr
@@ -53,7 +53,7 @@ record EmbedId (Dr Sup : Deriv) : Set₁ where
 
   extId : extend {Γ} {Γ} id ≗ᴰ id {Γ = A ∷ Γ}
   extId (here refl) = refl
-  extId (there i)   = weaken-id i
+  extId (there i)   = weakenId i
 
 
 record TermSubstCong (Tm : Deriv) : Set₁ where
@@ -66,16 +66,6 @@ record TermSubstCong (Tm : Deriv) : Set₁ where
 
   field applyCong : {Dr : Deriv} (ec : EmbedCong Dr Tm)
                   → ApplyCong (EmbedCong.e ec)
-  field applyId : {Dr : Deriv} → (ei : EmbedId Dr Tm)
-                → ApplyCong (EmbedId.e ei)
-                → (e+id≡v : ∀ {Γ A}
-                  → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var)
-                → ∀ {Γ A} → apply (EmbedId.e ei) {Γ} {Γ} (EmbedId.id ei) {A}
-                  ≗ Fun.id
-  -- TODO: Can be weakened if just needed for Tm weaken-id
-  field apply-var : ∀ {Dr} {e : Embed Dr Tm} {Γ Δ} {m : Map Dr Γ Δ} {A}
-                  → apply e m ∘ var {Γ} {A} ≗ Embed.embed e ∘ m
-
   private
     _≗ⱽ_ : (_ _ : Map _∋_ Γ Δ) → Set
     _≗ⱽ_ = Eq _∋_
@@ -86,16 +76,45 @@ record TermSubstCong (Tm : Deriv) : Set₁ where
     open VarSubst
     private variable m₁ m₂ : Map _∋_ Γ Δ
 
-    e = record { simple = simple ; embed = var }
     ec : EmbedCong _∋_ Tm
-    ec = record {e = e}
+    ec = record { e = varEmbed }
 
     renameCong : m₁ ≗ⱽ m₂ → ∀ {A} → rename m₁ {A} ≗ rename m₂
     renameCong = applyCong ec
 
+  module Term where
+    open Subst tmSubst
+    private variable m₁ m₂ : Map Tm Γ Δ
+
+    ec : EmbedCong Tm Tm
+    ec = record { e = tmEmbed }
+
+    substCong : m₁ ≗ᵀ m₂ → ∀ {A} → subst m₁ {A} ≗ subst m₂
+    substCong = applyCong ec
+
+record TermSubstId (Tm : Deriv) : Set₁ where
+  field tsCong : TermSubstCong Tm
+  open TermSubstCong tsCong using (ts ; ApplyCong )
+  open TermSubst ts
+
+  field applyId : {Dr : Deriv} → (ei : EmbedId Dr Tm)
+                → ApplyCong (EmbedId.e ei)
+                → (e+id≡v : ∀ {Γ A}
+                  → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var)
+                → ∀ {Γ A} → apply (EmbedId.e ei) {Γ} {Γ} (EmbedId.id ei) {A}
+                  ≗ Fun.id
+  -- TODO: Can be weakened if just needed for Tm weaken-id
+  field applyVar : ∀ {Dr : Deriv} {e : Embed Dr Tm} {Γ Δ} {m : Map Dr Γ Δ} {A}
+                  → apply e m ∘ var {Γ} {A} ≡ Embed.embed e ∘ m
+
+  module Var where
+    open VarSubst
+    open TermSubstCong.Var tsCong
+    private variable m₁ m₂ : Map _∋_ Γ Δ
+
     ei : EmbedId _∋_ Tm
-    ei = record { e = e
-                ; weaken-id = λ _ → refl
+    ei = record { e = varEmbed
+                ; weakenId = λ _ → refl
                 }
 
     renameId : rename {Γ} {Γ} id {A} ≗ Fun.id
@@ -103,24 +122,12 @@ record TermSubstCong (Tm : Deriv) : Set₁ where
 
   module Term where
     open Subst tmSubst
+    open TermSubstCong.Term tsCong
     private variable m₁ m₂ : Map Tm Γ Δ
 
-    weaken-id : weaken {Γ} {A} {B} ∘ id ≗ id ∘ there
-    weaken-id = apply-var
-
-    e = record { simple = Subst.simple tmSubst
-               ; embed = Fun.id
-               }
-
-    ec : EmbedCong Tm Tm
-    ec = record { e = e }
-
-    substCong : m₁ ≗ᵀ m₂ → ∀ {A} → subst m₁ {A} ≗ subst m₂
-    substCong = applyCong ec
-
     ei : EmbedId Tm Tm
-    ei = record { e = e
-                ; weaken-id = weaken-id
+    ei = record { e = tmEmbed
+                ; weakenId = cong-app applyVar
                 }
 
     substId : subst {Γ} {Γ} id {A} ≗ Fun.id

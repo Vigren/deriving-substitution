@@ -81,23 +81,25 @@ record TermSubst (Tm : Deriv) : Set₁ where
           → ∀ {A} → Tm Γ A
           → Tm Δ A
 
-  rename : Map _∋_ Γ Δ → ∀ {A} → Tm Γ A → Tm Δ A
-  rename = apply record { simple = VarSubst.simple
-                        ; embed  = var
-                        }
-
-  private
-    simple : Simple Tm
-    simple = record { id     = var
-                    ; weaken = rename there
+  varEmbed : Embed _∋_ Tm
+  varEmbed = record { simple = VarSubst.simple
+                    ; embed  = var
                     }
 
+  rename : Map _∋_ Γ Δ → ∀ {A} → Tm Γ A → Tm Δ A
+  rename = apply varEmbed
+
+  tmEmbed : Embed Tm Tm
+  tmEmbed = record { simple = record { id     = var
+                                     ; weaken = rename there
+                                     }
+                   ; embed  = Fun.id
+                   }
+
   subst : Map Tm Γ Δ → ∀ {A} → Tm Γ A → Tm Δ A
-  subst = apply record { simple = simple
-                       ; embed  = Fun.id
-                       }
+  subst = apply tmEmbed
 
   tmSubst : Subst Tm
-  tmSubst = record { simple = simple
+  tmSubst = record { simple = Embed.simple tmEmbed
                    ; app    = subst
                    }
