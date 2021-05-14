@@ -5,10 +5,33 @@ module Tactic where
 open import Prelude
 open import Container.Traversable
 open import Tactic.Reflection
-open import Tactic.Deriving
 
 open import Tools
 open import Substitution
+
+-- TODO: Could instead check if its unifiable with ∀ {Κ}. Κ ++ resCtx
+analyseArg : Nat → Arg Type → Term → Name → Bool
+analyseArg ix (arg _ (def₂ dName ctxs _)) resCtx tmName =
+  dName ==? tmName && isWeakened ctxs
+  where
+    isWeakened : Type → Bool
+    isWeakened typ =
+      ifYes (weaken (ix + 1) typ == resCtx)
+      then true
+      else case typ of λ
+          { (con (quote List._∷_)
+                  (hArg _ ∷ hArg _ ∷ vArg _ ∷ vArg ctxs ∷ []))
+                  → isWeakened ctxs
+          ; _    → false
+          }
+analyseArg _ _ _ _ = false
+
+-- Gets the first suitable var constructor.
+findVar : Term → List Name → TC Name
+findVar varHole conNames = do
+  choice $ flip map conNames $ λ cn → catchTC
+    (unify varHole (con₀ cn) >> return cn)
+    (typeErrorS "No suitable var constructor found.")
 
 module _ (`Typ : Type) where
   `Context   = def₁ (quote Context) `Typ
@@ -19,38 +42,12 @@ module _ (`Typ : Type) where
   `extendN   = def₂ (quote Embed.extendN)
   `embed     = def₂ (quote Embed.embed)
 
-  -- Gets the first suitable var constructor.
-  findVar : Term → List Name → TC Name
-  findVar varHole conNames = do
-    choice $ flip map conNames $ λ cn → catchTC
-      (unify varHole (con₀ cn) >> return cn)
-      (typeErrorS "No suitable var constructor found.")
-
-  -- TODO: Could instead check if its unifiable with ∀ {Κ}. Κ ++ resCtx
-  analyseArg : Nat → Arg Type → Term → Name → Bool
-  analyseArg ix (arg _ (def₂ dName ctxs _)) resCtx tmName =
-    dName ==? tmName && isWeakened ctxs
-    where
-      isWeakened : Type → Bool
-      isWeakened typ =
-        ifYes (weaken (ix + 1) typ == resCtx)
-        then true
-        else case typ of λ
-            { (con (quote List._∷_)
-                   (hArg _ ∷ hArg _ ∷ vArg _ ∷ vArg ctxs ∷ []))
-                   → isWeakened ctxs
-            ; _    → false
-            }
-  analyseArg _ _ _ _ = false
-
-
   buildVarBody : {n : Nat} → Vec (Arg Type) n → Term
   buildVarBody {n = argLen } _ =
     `embed (var₀ (argLen + 4)) (var₁ (argLen + 1) (var₀ 0))
 
   buildBody : {n : Nat} → Name → Name
-                  → Vec (Arg Type) n
-                  → Type → Name → Term
+            → Vec (Arg Type) n → Type → Name → Term
   buildBody {n = argLen} applyName conName argTypes resCtx tmName =
     con conName $ vecToList $ mapIx buildConArg argTypes
     where
@@ -75,10 +72,10 @@ module _ (`Typ : Type) where
         staticPartTel =
           ("Dr" , hArg (`Deriv))
           ∷ ("e" , vArg (`Embed (var₀ 0) (def₀ tmName)))
-          ∷ ("Γ" , (hArg `Context))
-          ∷ ("Δ" , (hArg `Context))
+          ∷ ("Γ" , hArg `Context)
+          ∷ ("Δ" , hArg `Context)
           ∷ ("m" , vArg (`Map (var₀ 3) (var₀ 1) (var₀ 0)))
-          ∷ ("T" , (hArg `Typ))
+          ∷ ("T" , hArg `Typ)
           ∷ []
 
     -- If a data type argument is a parameter,
@@ -127,7 +124,6 @@ module _ (`Typ : Type) where
 
     return (clause tel pat body)
 
-
   buildApply : Term → Name → Name → List Name → TC ⊤
   buildApply applyHole tmName varName conNames = do
     applyName ← freshName "applyGenerated"
@@ -137,27 +133,22 @@ module _ (`Typ : Type) where
     clauses ← mapM (buildClause tmName varName applyName)
                    conNames
 
-
     defineFun applyName clauses
-
     unify applyHole (def₀ applyName)
-
-    return tt
 
 macro
   deriveSubst : Term → TC ⊤
   deriveSubst tsHole = do
-      varHole ← newMeta!
-      applyHole ← newMeta!
-      (def₂ (quote TermSubst) `Typ (def₀ tmName)) ←
-            normalise =<< inferType tsHole
-        where _ → typeErrorS ""
+    varHole ← newMeta!
+    applyHole ← newMeta!
+    (def₂ (quote TermSubst) `Typ (def₀ tmName)) ← normalise =<< inferType tsHole
+      where _ → typeErrorS ""
 
-      tsCon ← recordConstructor $ (quote TermSubst)
-      unify tsHole $ con₂ tsCon varHole applyHole
+    tsCon ← recordConstructor $ (quote TermSubst)
+    unify tsHole $ con₂ tsCon varHole applyHole
 
-      conNames ← getConstructors tmName
-      varName ← findVar `Typ varHole conNames
-      buildApply `Typ applyHole tmName varName conNames
+    conNames ← getConstructors tmName
+    varName ← findVar varHole conNames
+    buildApply `Typ applyHole tmName varName conNames
 
-      return tt
+    return tt
