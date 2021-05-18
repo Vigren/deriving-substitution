@@ -10,6 +10,7 @@ data Type : Set where
 
 open import Tactic
 open import Substitution (Type)
+open import Lemmas (Type)
 open Variables
 
 module Double where
@@ -21,6 +22,9 @@ module Double where
   ts : TermSubst Tm
   ts = deriveSubst
 
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong
+
 module NoParam where
   data Tm : Context → Type → Set where
     var : Γ ∋ A → Tm Γ A
@@ -28,6 +32,9 @@ module NoParam where
 
   ts : TermSubst Tm
   ts = deriveSubst
+
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong
 
 module TwoParam where
   data Tm (Γ : Context) (A : Type) : Set where
@@ -37,6 +44,9 @@ module TwoParam where
   ts : TermSubst Tm
   ts = deriveSubst
 
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong
+
 module ContextConcatenation where
   data Tm (Γ : Context) (A : Type) : Set where
     var : Γ ∋ A → Tm Γ A
@@ -44,6 +54,9 @@ module ContextConcatenation where
 
   ts : TermSubst Tm
   ts = deriveSubst
+
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong
 
 module Constant where
   data Tm (Γ : Context) : Type → Set where
@@ -53,6 +66,8 @@ module Constant where
   ts : TermSubst Tm
   ts = deriveSubst
 
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong
 
 -- A subterm that does not inherit parent scope
 module FreshScope where
@@ -62,3 +77,6 @@ module FreshScope where
 
   ts : TermSubst Tm
   ts = deriveSubst
+
+  tsc : TermSubstCong Tm
+  tsc = deriveTSCong

@@ -104,3 +104,9 @@ module LemmasManual where
                ; applyVar = λ {_} {e = e} {_} {_} {m} →
                             applyVar {e = e} {m = m}
                }
+
+module LemmasGenerated where
+  open import Lemmas (Type)
+  open import Tactic
+  tsc : TermSubstCong _⊢_
+  tsc = deriveTSCong
