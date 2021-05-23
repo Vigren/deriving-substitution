@@ -55,6 +55,11 @@ record EmbedId (Dr Sup : Deriv) : Set₁ where
   extId (here refl) = refl
   extId (there i)   = weakenId i
 
+  extIdN : extendN {Γ} {Γ} id {A = A} ≗ id {Γ = Κ ++ Γ}
+  extIdN {Κ = []} _                = refl
+  extIdN {Κ = _ ∷ _} (here refl)   = refl
+  extIdN {Γ} {Κ = _ ∷ _} (there t) = trans (cong weaken (extIdN {Γ} t))
+                                           (weakenId t)
 
 record TermSubstCong (Tm : Deriv) : Set₁ where
   field ts : TermSubst Tm
