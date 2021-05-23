@@ -30,19 +30,19 @@ module Manual where
   module _ {Dr : Deriv} (l : Embed Dr _⊢_) where
     open Embed l
 
-    sub : ∀ {Γ Δ} → Map Dr Γ Δ → ∀ {A} → Γ ⊢ A → Δ ⊢ A
-    sub m (var x)                = embed (m x)
-    sub m (nat x)                = nat x
-    sub m (app f x)              = app (sub m f) (sub m x)
-    sub m (abs b)                = abs (sub (m ↑) b)
-    sub m (left l)               = left (sub m l)
-    sub m (right r)              = right (sub m r)
-    sub m (case l+r l→ lb r→ rb) = case (sub m l+r)
-                                  l→ (sub (m ↑) lb)
-                                  r→ sub (m ↑) rb
+    apply : ∀ {Γ Δ} → Map Dr Γ Δ → ∀ {A} → Γ ⊢ A → Δ ⊢ A
+    apply m (var x)                = embed (m x)
+    apply m (nat x)                = nat x
+    apply m (app f x)              = app (apply m f) (apply m x)
+    apply m (abs b)                = abs (apply (m ↑) b)
+    apply m (left l)               = left (apply m l)
+    apply m (right r)              = right (apply m r)
+    apply m (case l+r l→ lb r→ rb) = case (apply m l+r)
+                                  l→ (apply (m ↑) lb)
+                                  r→ apply (m ↑) rb
 
   manTs : TermSubst _⊢_
-  manTs = record { var = var ; apply = sub }
+  manTs = record { var = var ; apply = apply }
 
 module Generated where
   open import Tactic using (deriveSubst)
@@ -52,7 +52,7 @@ module Generated where
 module LemmasManual where
   open Manual
   open import Lemmas (Type)
-  open TermSubst manTs hiding (var)
+  open TermSubst manTs hiding (var ; apply)
   open import Function.Nary.NonDependent using (congₙ)
   open import Data.List.Relation.Unary.Any using (here ; there)
   open import Relation.Binary.PropositionalEquality hiding (subst)
