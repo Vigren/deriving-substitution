@@ -58,15 +58,11 @@ module LemmasManual where
   open import Relation.Binary.PropositionalEquality hiding (subst)
   open import Function as Fun hiding (id)
 
-  applyVar : ∀ {Dr : Deriv} {e : Embed Dr _⊢_} {Γ Δ} {m : Map Dr Γ Δ} {A}
-           → apply e m ∘ var {Γ} {A} ≡ Embed.embed e ∘ m
-  applyVar = refl
-
   module _ {Dr : Deriv} (ec : EmbedCong Dr _⊢_) where
     open EmbedCong ec
     applyCong : ∀ {Γ Δ : Context} {m₁ m₂ : Map Dr Γ Δ}
               → Eq Dr m₁ m₂ → ∀ {A} → apply e m₁ {A} ≗ apply e m₂
-    applyCong eq (_⊢_.var x) = cong embed  (eq x)
+    applyCong eq (var x)     = cong embed (eq x)
     applyCong eq (nat x)     = cong nat refl
     applyCong eq (app t t₁)  = cong₂ app (applyCong eq t)
                                          (applyCong eq t₁)
@@ -87,16 +83,14 @@ module LemmasManual where
 
     module _ (applyCong : ∀ {Γ Δ} {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
                         → ∀ {A} → apply e m₁ {A} ≗ apply e m₂ )
-             (e+id≡v : ∀ {Γ A} →
-               EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ _⊢_.var ) where
+             (varCase : ∀ {Γ A} → apply e {Γ} id {A} ∘ var ≗ Fun.id ∘ var) where
 
       applyId : ∀ {Γ A} → apply e {Γ} id {A} ≗ Fun.id
-      applyId (var x)    = trans (cong-app (applyVar {e = e} {m = id}) x)
-                                 (cong-app e+id≡v x)
-      applyId (nat x)    = refl
+      applyId (var x)    = varCase x
+      applyId (nat x)    = cong nat refl
       applyId (app t t₁) = cong₂ app (applyId t) (applyId t₁)
       applyId (abs t)    = cong abs (trans (applyCong extId t)
-                                            (applyId t))
+                                           (applyId t))
       applyId (left t)   = cong left (applyId t)
       applyId (right t)  = cong right (applyId t)
       applyId (case t l→ t₁ r→ t₂) = congₙ 3 case_l→_r→_
@@ -107,8 +101,7 @@ module LemmasManual where
   tsi : TermSubstId _⊢_
   tsi = record { tsCong   = tsc
                ; applyId  = applyId
-               ; applyVar = λ {_} {e = e} {_} {_} {m} →
-                            applyVar {e = e} {m = m}
+               ; applyVar = refl
                }
 
 module LemmasGenerated where

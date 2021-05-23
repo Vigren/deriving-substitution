@@ -98,14 +98,12 @@ record TermSubstId (Tm : Deriv) : Set₁ where
   open TermSubst ts
 
   field applyId : {Dr : Deriv} → (ei : EmbedId Dr Tm)
-                → ApplyCong (EmbedId.e ei)
-                → (e+id≡v : ∀ {Γ A}
-                  → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var)
-                → ∀ {Γ A} → apply (EmbedId.e ei) {Γ} {Γ} (EmbedId.id ei) {A}
-                  ≗ Fun.id
+                → let open EmbedId ei in ApplyCong e
+                → (varCase : ∀ {Γ A} → apply e {Γ} id {A} ∘ var ≗ Fun.id ∘ var)
+                → ∀ {Γ A} → apply e {Γ} {Γ} id {A} ≗ Fun.id
   -- TODO: Can be weakened if just needed for Tm weaken-id
   field applyVar : ∀ {Dr : Deriv} {e : Embed Dr Tm} {Γ Δ} {m : Map Dr Γ Δ} {A}
-                  → apply e m ∘ var {Γ} {A} ≡ Embed.embed e ∘ m
+                 → apply e m ∘ var {Γ} {A} ≡ Embed.embed e ∘ m
 
   module Var where
     open VarSubst
@@ -117,8 +115,11 @@ record TermSubstId (Tm : Deriv) : Set₁ where
                 ; weakenId = λ _ → refl
                 }
 
+    e+id≡v : ∀ {Γ A} → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var
+    e+id≡v = refl
+
     renameId : rename {Γ} {Γ} id {A} ≗ Fun.id
-    renameId = applyId ei renameCong refl
+    renameId = applyId ei renameCong (cong-app (trans applyVar e+id≡v))
 
   module Term where
     open Subst tmSubst
@@ -130,5 +131,8 @@ record TermSubstId (Tm : Deriv) : Set₁ where
                 ; weakenId = cong-app applyVar
                 }
 
+    e+id≡v : ∀ {Γ A} → EmbedId.embed ei {Γ} {A} ∘ EmbedId.id ei ≡ var
+    e+id≡v = refl
+
     substId : subst {Γ} {Γ} id {A} ≗ Fun.id
-    substId = applyId ei substCong refl
+    substId = applyId ei substCong (cong-app (trans applyVar e+id≡v))
