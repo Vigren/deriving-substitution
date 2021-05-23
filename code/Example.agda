@@ -1,7 +1,9 @@
 module Example where
 open import Data.List
+open import Data.Nat hiding (_+_)
 
 data Type : Set where
+  Nat : Type
   _⇒_ : Type → Type → Type
   _+_ : Type → Type → Type
 
@@ -14,6 +16,7 @@ infixl 7 _+_
 
 data _⊢_ (Γ : Context) : Type → Set where
   var : (x : Γ ∋ A) → Γ ⊢ A
+  nat : ℕ → (Γ ⊢ Nat)
   app : (f : Γ ⊢ A ⇒ B) (x : Γ ⊢ A) → Γ ⊢ B
   abs : (b : A ∷ Γ ⊢ B) → (Γ ⊢ A ⇒ B)
   left : (l : Γ ⊢ A) → (Γ ⊢ A + B)
@@ -29,6 +32,7 @@ module Manual where
 
     sub : ∀ {Γ Δ} → Map Dr Γ Δ → ∀ {A} → Γ ⊢ A → Δ ⊢ A
     sub m (var x)                = embed (m x)
+    sub m (nat x)                = nat x
     sub m (app f x)              = app (sub m f) (sub m x)
     sub m (abs b)                = abs (sub (m ↑) b)
     sub m (left l)               = left (sub m l)
@@ -63,6 +67,7 @@ module LemmasManual where
     applyCong : ∀ {Γ Δ : Context} {m₁ m₂ : Map Dr Γ Δ}
               → Eq Dr m₁ m₂ → ∀ {A} → apply e m₁ {A} ≗ apply e m₂
     applyCong eq (_⊢_.var x) = cong embed  (eq x)
+    applyCong eq (nat x)     = cong nat refl
     applyCong eq (app t t₁)  = cong₂ app (applyCong eq t)
                                          (applyCong eq t₁)
     applyCong eq (abs t)     = cong abs (applyCong (extCong eq) t)
@@ -88,6 +93,7 @@ module LemmasManual where
       applyId : ∀ {Γ A} → apply e {Γ} id {A} ≗ Fun.id
       applyId (var x)    = trans (cong-app (applyVar {e = e} {m = id}) x)
                                  (cong-app e+id≡v x)
+      applyId (nat x)    = refl
       applyId (app t t₁) = cong₂ app (applyId t) (applyId t₁)
       applyId (abs t)    = cong abs (trans (applyCong extId t)
                                             (applyId t))
