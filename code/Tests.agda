@@ -22,7 +22,7 @@ module Double where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong
 
 module NoParam where
@@ -33,7 +33,7 @@ module NoParam where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong
 
 module TwoParam where
@@ -44,7 +44,7 @@ module TwoParam where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong
 
 module ContextConcatenation where
@@ -55,7 +55,7 @@ module ContextConcatenation where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong
 
 module Constant where
@@ -66,7 +66,7 @@ module Constant where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong
 
 -- A subterm that does not inherit parent scope
@@ -78,5 +78,5 @@ module FreshScope where
   ts : TermSubst Tm
   ts = deriveSubst
 
-  tsc : TermSubstCong Tm
+  tsc : TermSubstCong ts
   tsc = deriveTSCong

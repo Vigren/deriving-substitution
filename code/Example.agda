@@ -58,47 +58,42 @@ module LemmasManual where
   open import Relation.Binary.PropositionalEquality hiding (subst)
   open import Function as Fun hiding (id)
 
-  module _ {Dr : Deriv} (ec : EmbedCong Dr _⊢_) where
-    open EmbedCong ec
-    applyCong : ∀ {Γ Δ : Context} {m₁ m₂ : Map Dr Γ Δ}
-              → Eq Dr m₁ m₂ → ∀ {A} → apply e m₁ {A} ≗ apply e m₂
+  module _ {Dr : Deriv} {e : Embed Dr _⊢_} (ca : CongAppArgs e) where
+    open CongAppArgs ca
+
+    applyCong : ∀ {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
+              → ∀ {A} → apply e m₁ {A} ≗ apply e m₂
     applyCong eq (var x)     = cong embed (eq x)
     applyCong eq (nat x)     = cong nat refl
-    applyCong eq (app t t₁)  = cong₂ app (applyCong eq t)
-                                         (applyCong eq t₁)
+    applyCong eq (app t t₁)  = cong₂ app (applyCong eq t) (applyCong eq t₁)
     applyCong eq (abs t)     = cong abs (applyCong (extCong eq) t)
     applyCong eq (left t)    = cong left (applyCong eq t)
     applyCong eq (right t)   = cong right (applyCong eq t)
     applyCong eq (case t l→ t₁ r→ t₂) =
       congₙ 3 case_l→_r→_
         (applyCong eq t)
-        (applyCong (extCong eq)  t₁)
-        (applyCong (extCong eq)  t₂)
+        (applyCong (extCong eq) t₁)
+        (applyCong (extCong eq) t₂)
 
-  tsc : TermSubstCong _⊢_
-  tsc = record { ts = manTs ; applyCong = applyCong }
+  tsc : TermSubstCong manTs
+  tsc = record { applyCong = applyCong }
 
-  module _ {Dr : Deriv} (ei : EmbedId Dr _⊢_) where
-    open EmbedId ei
+  module _ {Dr : Deriv} {e : Embed Dr _⊢_} (ia : IdAppArgs manTs e) where
+    open IdAppArgs ia
 
-    module _ (applyCong : ∀ {Γ Δ} {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
-                        → ∀ {A} → apply e m₁ {A} ≗ apply e m₂ )
-             (varCase : ∀ {Γ A} → apply e {Γ} id {A} ∘ var ≗ Fun.id ∘ var) where
+    applyId : apply e {Γ} id {A} ≗ Fun.id
+    applyId (var x)    = e+id=var x
+    applyId (nat x)    = cong nat refl
+    applyId (app t t₁) = cong₂ app (applyId t) (applyId t₁)
+    applyId {Γ} (abs t) = cong abs (trans (appExtCong {Γ} t) (applyId t))
+    applyId (left t)   = cong left (applyId t)
+    applyId (right t)  = cong right (applyId t)
+    applyId {Γ} (case t l→ t₁ r→ t₂) = congₙ 3 case_l→_r→_
+      (applyId t)
+      (trans (appExtCong {Γ} t₁) (applyId t₁))
+      (trans (appExtCong {Γ} t₂) (applyId t₂))
 
-      applyId : ∀ {Γ A} → apply e {Γ} id {A} ≗ Fun.id
-      applyId (var x)    = varCase x
-      applyId (nat x)    = cong nat refl
-      applyId (app t t₁) = cong₂ app (applyId t) (applyId t₁)
-      applyId (abs t)    = cong abs (trans (applyCong extId t)
-                                           (applyId t))
-      applyId (left t)   = cong left (applyId t)
-      applyId (right t)  = cong right (applyId t)
-      applyId (case t l→ t₁ r→ t₂) = congₙ 3 case_l→_r→_
-        (applyId t)
-        (trans (applyCong extId t₁) (applyId t₁))
-        (trans (applyCong extId t₂) (applyId t₂))
-
-  tsi : TermSubstId _⊢_
+  tsi : TermSubstId manTs
   tsi = record { tsCong   = tsc
                ; applyId  = applyId
                ; applyVar = refl
@@ -107,5 +102,7 @@ module LemmasManual where
 module LemmasGenerated where
   open import Lemmas (Type)
   open import Tactic
-  tsc : TermSubstCong _⊢_
+  open Generated
+
+  tsc : TermSubstCong genTs
   tsc = deriveTSCong

@@ -69,7 +69,7 @@ module VarSubst where
       { id     = Fun.id
       ; weaken = there
       }
-    ; app = λ f x → f x }
+    ; app = Fun.id }
 
   open Subst subst public
 
