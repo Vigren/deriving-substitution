@@ -311,3 +311,64 @@ deriveTSCong' tscHole = do
   return tt
 
 macro deriveTSCong = deriveTSCong'
+
+buildApplyId : Type → Term → Name → Term → TC ⊤
+buildApplyId `Typ `ts tmName aiHole = do
+  aiName ← freshName "aiGenerated"
+  inferType aiHole >>= declareDef (vArg aiName)
+
+  varName ← getVarNameFromTs `ts
+
+  conNames ← getConstructors tmName
+  clauses ← forA conNames $ LA.buildClause `Typ tmName varName aiName staticTel
+                                           varBody inheritTerm 1 0
+
+  defineFun aiName clauses
+  unify aiHole (def₀ aiName)
+
+  where
+    open Quoted `Typ
+    `IdAppArgs = def₃ (quote IdAppArgs) `Typ
+    `Eq        = def₄ (quote Lemmas.Eq) `Typ
+    `trans     = def₂ (quote trans)
+    `apply     = def₂ (quote TermSubst.apply)
+    `e+id=var  = def₂ (quote IdAppArgs.e+id=var)
+    `appExtCong = def (quote IdAppArgs.appExtCong)
+
+    -- e+id=var ia x
+    varBody : Nat → Term
+    varBody argLen = `e+id=var (var₀ (argLen + 2)) (var₀ 0)
+
+    inheritTerm : Nat → Nat → Name → Term
+    inheritTerm argLen ix funName =
+      `trans
+        -- appExtCong ia {Γ} tₙ
+        (`appExtCong $ (var₀ (argLen + 2)) ⟨∷⟩ var₀ (argLen + 1) ⟅∷⟆ (var₀ ix) ⟨∷⟩ [])
+        -- applyId ia tₙ
+        (def₂ funName (var₀ (argLen + 2)) (var₀ ix))
+
+    staticTel : Telescope
+    staticTel = ("Dr"         , hArg `Deriv)
+              ∷ ("e"          , hArg (`Embed (var₀ 0) (def₀ tmName)))
+              ∷ ("ia"         , vArg (`IdAppArgs `ts (var₀ 0)))
+              ∷ ("Γ"          , hArg `Context)
+              ∷ ("T"          , hArg `Typ)
+              ∷ []
+
+deriveTSId' : Term → TC ⊤
+deriveTSId' tsiHole = do
+  def (quote TermSubstId) (`Typ ⟨∷⟩ (def₀ tmName) ⟅∷⟆ `ts ⟨∷⟩ []) ←
+                            inferType tsiHole >>= normalise
+    -- TODO
+    where _ → typeErrorS ""
+
+  applyIdHole ← newMeta!
+  tscHole ← newMeta!
+  tsiCon ← recordConstructor $ (quote TermSubstId)
+  unify tsiHole $ con₃ tsiCon tscHole applyIdHole (con₀ (quote refl))
+
+  deriveTSCong' tscHole
+
+  buildApplyId `Typ `ts tmName applyIdHole
+
+macro deriveTSId = deriveTSId'
