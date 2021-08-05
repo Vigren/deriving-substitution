@@ -38,8 +38,8 @@ module Manual where
     apply m (left l)               = left (apply m l)
     apply m (right r)              = right (apply m r)
     apply m (case l+r l→ lb r→ rb) = case (apply m l+r)
-                                  l→ (apply (m ↑) lb)
-                                  r→ apply (m ↑) rb
+                                     l→ (apply (m ↑) lb)
+                                     r→ apply (m ↑) rb
 
   manTs : TermSubst _⊢_
   manTs = record { var = var ; apply = apply }
@@ -56,9 +56,9 @@ module LemmasManual where
   open import Function.Nary.NonDependent using (congₙ)
   open import Data.List.Relation.Unary.Any using (here ; there)
   open import Relation.Binary.PropositionalEquality hiding (subst)
-  open import Function as Fun hiding (id)
+  open import Function as Fun using (_∘_ ; _$_)
 
-  module _ {Dr : Deriv} {e : Embed Dr _⊢_} (ca : CongAppArgs e) where
+  module TSC {Dr : Deriv} {e : Embed Dr _⊢_} (ca : CongAppArgs e) where
     open CongAppArgs ca
 
     applyCong : ∀ {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
@@ -76,26 +76,26 @@ module LemmasManual where
         (applyCong (extCong eq) t₂)
 
   tsc : TermSubstCong manTs
-  tsc = record { applyCong = applyCong }
+  tsc = record { applyCong = TSC.applyCong }
 
-  module _ {Dr : Deriv} {e : Embed Dr _⊢_} (ia : IdAppArgs manTs e) where
+  module TSI {Dr : Deriv} {e : Embed Dr _⊢_} (ia : IdAppArgs manTs e) where
     open IdAppArgs ia
 
     applyId : apply e {Γ} id {A} ≗ Fun.id
     applyId (var x)    = e+id=var x
     applyId (nat x)    = cong nat refl
     applyId (app t t₁) = cong₂ app (applyId t) (applyId t₁)
-    applyId {Γ} (abs t) = cong abs (trans (appExtCong {Γ} t) (applyId t))
+    applyId {Γ} (abs t) = cong abs (trans (appExtCong Γ t) (applyId t))
     applyId (left t)   = cong left (applyId t)
     applyId (right t)  = cong right (applyId t)
     applyId {Γ} (case t l→ t₁ r→ t₂) = congₙ 3 case_l→_r→_
       (applyId t)
-      (trans (appExtCong {Γ} t₁) (applyId t₁))
-      (trans (appExtCong {Γ} t₂) (applyId t₂))
+      (trans (appExtCong Γ t₁) (applyId t₁))
+      (trans (appExtCong Γ t₂) (applyId t₂))
 
   tsi : TermSubstId manTs
   tsi = record { tsCong   = tsc
-               ; applyId  = applyId
+               ; applyId  = TSI.applyId
                ; applyVar = refl
                }
 
@@ -106,3 +106,6 @@ module LemmasGenerated where
 
   tsc : TermSubstCong genTs
   tsc = deriveTSCong
+
+  tsi : TermSubstId genTs
+  tsi = deriveTSId

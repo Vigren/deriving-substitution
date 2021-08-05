@@ -19,8 +19,7 @@ open import Relation.Binary.TypeClasses
 open import Relation.Nullary
 open import Reflection.Show using (showName)
 open import Reflection.TypeChecking.Monad.Categorical using (applicative)
-open import Reflection.TypeChecking.Monad.Instances
-open import Reflection.TypeChecking.Monad.Syntax
+open import Reflection.TypeChecking.Monad.Syntax hiding (pure)
 open import Relation.Binary.PropositionalEquality
             using (cong ; refl ; trans)
 
@@ -342,8 +341,8 @@ buildApplyId `Typ `ts tmName aiHole = do
     inheritTerm : Nat → Nat → Name → Term
     inheritTerm argLen ix funName =
       `trans
-        -- appExtCong ia {Γ} tₙ
-        (`appExtCong $ (var₀ (argLen + 2)) ⟨∷⟩ var₀ (argLen + 1) ⟅∷⟆ (var₀ ix) ⟨∷⟩ [])
+        -- appExtCong ia Γ tₙ
+        (`appExtCong $ var₀ (argLen + 2) ⟨∷⟩ var₀ (argLen + 1) ⟨∷⟩ var₀ ix ⟨∷⟩ [])
         -- applyId ia tₙ
         (def₂ funName (var₀ (argLen + 2)) (var₀ ix))
 

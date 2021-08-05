@@ -20,29 +20,29 @@ Map Tm Γ Δ = ∀ {A} → Γ ∋ A → Tm Δ A
 
 module Variables where
   variable
-    A B C : Type
-    Γ Δ Κ : Context
+    A B C P : Type
+    Γ Δ Κ Pre : Context
 open Variables
 
 record Simple (Dr : Deriv) : Set where
   field
     id     : Map Dr Γ Γ
-    weaken : Dr Γ A → Dr (B ∷ Γ) A
+    weaken : Dr Γ A → Dr (P ∷ Γ) A
 
   infixl  10 _↑
 
   -- Lifts / extends a derivation map so a new topmost variable
   -- is mapped to a new topmost variable, and the rest is weakened.
-  extend _↑ : Map Dr Γ Δ → ∀ {A} → Map Dr (A ∷ Γ) (A ∷ Δ)
+  extend _↑ : Map Dr Γ Δ → ∀ {P} → Map Dr (P ∷ Γ) (P ∷ Δ)
   extend _ (here refl) = id (here refl)
   extend s (there i)   = weaken (s i)
   _↑ = extend
 
-  extendN : Map Dr Γ Δ → ∀ {Κ} → Map Dr (Κ ++ Γ) (Κ ++ Δ)
-  extendN m {Κ = []}    = m
-  extendN m {Κ = _ ∷ _} = extend (extendN m)
+  extendN : Map Dr Γ Δ → ∀ {Pre} → Map Dr (Pre ++ Γ) (Pre ++ Δ)
+  extendN m {Pre = []}    = m
+  extendN m {Pre = _ ∷ _} = extend (extendN m)
 
-  wk : Map Dr Γ (A ∷ Γ)
+  wk : Map Dr Γ (P ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
 
 record Subst (Dr : Deriv) : Set where
@@ -62,16 +62,13 @@ record Embed (Dr₁ Dr₂ : Deriv) : Set where
 
   open Simple simple public
 
-module VarSubst where
-  subst : Subst _∋_
-  subst = record
-    { simple = record
-      { id     = Fun.id
-      ; weaken = there
-      }
-    ; app = Fun.id }
-
-  open Subst subst public
+varSubst : Subst _∋_
+varSubst = record { simple = record
+                    { id     = Fun.id
+                    ; weaken = there
+                    }
+                  ; app = Fun.id
+                  }
 
 record TermSubst (Tm : Deriv) : Set₁ where
   field
@@ -82,7 +79,7 @@ record TermSubst (Tm : Deriv) : Set₁ where
           → Tm Δ A
 
   varEmbed : Embed _∋_ Tm
-  varEmbed = record { simple = VarSubst.simple
+  varEmbed = record { simple = Subst.simple varSubst
                     ; embed  = var
                     }
 
