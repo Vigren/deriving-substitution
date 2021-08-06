@@ -177,15 +177,18 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
     unify applyHole (def₀ applyName)
 
 
-deriveSubst' : Term → TC ⊤
-deriveSubst' tsHole = do
+deriveSubst' : ∀ {Ty} {Tm : Deriv Ty} → Term → TC ⊤
+deriveSubst' {Typ} {Tm} tsHole = do
+  `Typ ← quoteTC Typ
+  `Tm ← quoteTC Tm
+  noConstraints $ checkType tsHole
+                            (def₂ (quote TermSubst) `Typ `Tm)
+  (def₀ tmName) ← normalise `Tm
+    where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
+
   varHole ← newMeta!
   applyHole ← newMeta!
-  (def₂ (quote TermSubst) `Typ (def₀ tmName)) ← inferType tsHole >>= normalise
-    -- TODO
-    where _ → typeErrorS ""
-
-  tsCon ← recordConstructor $ (quote TermSubst)
+  tsCon ← recordConstructor $ quote TermSubst
   unify tsHole $ con₂ tsCon varHole applyHole
 
   conNames ← getConstructors tmName
@@ -258,7 +261,7 @@ buildApplyCong `Typ `ts tmName acHole = do
   acName ← freshName "acGenerated"
   inferType acHole >>= declareDef (vArg acName)
 
-  varName ← getVarNameFromTs `ts
+  varName ← normalise `ts >>= getVarNameFromTs
   conNames ← getConstructors tmName
   clauses ← forA conNames $ LA.buildClause `Typ tmName varName acName staticTel
                                            varBody inheritTerm 5 0
@@ -294,12 +297,16 @@ buildApplyCong `Typ `ts tmName acHole = do
               ∷ ("T"     , hArg `Typ)
               ∷ []
 
-deriveTSCong' : Term → TC ⊤
-deriveTSCong' tscHole = do
-  def (quote TermSubstCong) (`Typ ⟨∷⟩ (def₀ tmName) ⟅∷⟆ `ts ⟨∷⟩ []) ←
-                            inferType tscHole >>= normalise
-    -- TODO
-    where _ → typeErrorS ""
+deriveTSCong' : ∀ {Typ} {Tm} {ts : TermSubst Typ Tm}
+              → Term → TC ⊤
+deriveTSCong' {Typ} {Tm} {ts} tscHole = do
+  `Typ ← quoteTC Typ
+  `Tm ← quoteTC Tm
+  `ts ← quoteTC ts
+  checkType tscHole $ def (quote TermSubstCong) $
+                      `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
+  (def₀ tmName) ← normalise `Tm
+    where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
 
   applyCongHole ← newMeta!
 
@@ -316,7 +323,7 @@ buildApplyId `Typ `ts tmName aiHole = do
   aiName ← freshName "aiGenerated"
   inferType aiHole >>= declareDef (vArg aiName)
 
-  varName ← getVarNameFromTs `ts
+  varName ← normalise `ts >>= getVarNameFromTs
 
   conNames ← getConstructors tmName
   clauses ← forA conNames $ LA.buildClause `Typ tmName varName aiName staticTel
@@ -354,19 +361,25 @@ buildApplyId `Typ `ts tmName aiHole = do
               ∷ ("T"          , hArg `Typ)
               ∷ []
 
-deriveTSId' : Term → TC ⊤
-deriveTSId' tsiHole = do
-  def (quote TermSubstId) (`Typ ⟨∷⟩ (def₀ tmName) ⟅∷⟆ `ts ⟨∷⟩ []) ←
-                            inferType tsiHole >>= normalise
-    -- TODO
-    where _ → typeErrorS ""
+deriveTSId' : ∀ {Typ} {Tm} {ts : TermSubst Typ Tm}
+            → Term → TC ⊤
+deriveTSId' {Typ} {Tm} {ts} tsiHole = do
+  `Typ ← quoteTC Typ
+  `Tm ← quoteTC Tm
+  `ts ← quoteTC ts
+  checkType tsiHole $ def (quote TermSubstId) $
+                      `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
+
+  (def₀ tmName) ← normalise `Tm
+
+    where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
 
   applyIdHole ← newMeta!
   tscHole ← newMeta!
   tsiCon ← recordConstructor $ (quote TermSubstId)
   unify tsiHole $ con₃ tsiCon tscHole applyIdHole (con₀ (quote refl))
 
-  deriveTSCong' tscHole
+  deriveTSCong' {ts = ts} tscHole
 
   buildApplyId `Typ `ts tmName applyIdHole
 
