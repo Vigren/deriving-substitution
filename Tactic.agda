@@ -2,9 +2,9 @@
 
 module Tactic where
 
-open import Agda.Builtin.Nat using (Nat ; _+_)
-open import Agda.Builtin.Unit
-open import Agda.Primitive using (lzero)
+open import Data.Nat using (ℕ ; _+_ ; _∸_)
+open import Data.Unit using (⊤ ; tt)
+open import Level using (zero)
 open import Data.Bool hiding (_≟_)
 open import Data.List
 import Data.List.Categorical
@@ -16,18 +16,14 @@ open import Reflection.DeBruijn
 open import Reflection.Instances
 open import Reflection.Term hiding (_≟_)
 open import Relation.Binary.TypeClasses
-open import Relation.Nullary
+open import Relation.Nullary using (does)
 open import Reflection.Show using (showName)
 open import Reflection.TypeChecking.Monad.Categorical using (applicative)
 open import Reflection.TypeChecking.Monad.Syntax hiding (pure)
 open import Relation.Binary.PropositionalEquality
             using (cong ; refl ; trans)
 
-open Data.List.Categorical.TraversableA {f = lzero} (applicative)
-
-open import Tactic.Reflection
-            using ( conParams ; substTerm ; safe ; telePat ; newMeta!
-                  ; recordConstructor ; getConstructors ; isVisible )
+open Data.List.Categorical.TraversableA {f = zero} (applicative)
 
 open import Tools
 open import Substitution
@@ -35,7 +31,7 @@ open import Lemmas
 
 -- TODO: Could instead check if its unifiable with ∀ {Κ}. Κ ++ resCtx
 -- Checks whether an argument type is a n-weakened resCtx / inherits resCtx.
-inheritsScope : Nat → Type → Name → Arg Type → Bool
+inheritsScope : ℕ → Type → Name → Arg Type → Bool
 inheritsScope ctxIx resCtx tmName (arg _ (def₂ dName ctxs _)) =
   does (dName ≟ tmName) ∧ isWeakened (weaken ctxIx ctxs)
   where
@@ -59,9 +55,10 @@ findVar varHole conNames = do
 
 -- Substitutes references to parameters in a constructor type
 -- for some variable in a telescope.
-redirectParams : Name → Telescope → Nat → Nat → TC Type
-redirectParams conName staticTel contextIndex typeIndex = do
-  #params ← conParams conName
+redirectParams : Name → Name → Telescope → ℕ → ℕ → TC Type
+redirectParams conName tmName staticTel contextIndex typeIndex = do
+  data-type #params _ ← getDefinition tmName
+    where _ → typeErrorS "Panic: Tm not data-type"
   inContextTel staticTel $
     let unPi : Type → TC Type
         unPi = λ { (Π[ _ ∶ _ ] rs) → return rs
@@ -73,12 +70,10 @@ redirectParams conName staticTel contextIndex typeIndex = do
         -- No parameters, no need to redirect anything
         { 0 → return t
         -- Context is parameter, redirect to static Γ.
-        ; 1 → substTerm [ safe (var₀ contextIndex) tt ] <$> unPi t
+        ; 1 → weaken contextIndex <$> unPi t
         -- Both context and type is parameter, redirect to static Γ, T
-        ; 2 → substTerm ( safe (var₀ typeIndex) tt
-                        ∷ (safe (var₀ contextIndex) tt)
-                        ∷ []) <$> (unPi t >>= unPi)
-
+        ; 2 → -- Janky substitution
+              unPi t <&> weaken (contextIndex ∸ 1) >>= unPi <&> weaken typeIndex
         ; n → typeErrorS "Panic: Too many params"
         }
 
@@ -101,8 +96,8 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
   `embed     = def₂ (quote Embed.embed)
 
   -- The initial, static part of the apply telescope
-  staticPartTel : Telescope
-  staticPartTel =
+  staticTel : Telescope
+  staticTel =
       ("Dr" , hArg (`Deriv))
     ∷ ("e" , vArg (`Embed (var₀ 0) (def₀ tmName)))
     ∷ ("Γ" , hArg `Context)
@@ -111,13 +106,13 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
     ∷ ("T" , hArg `Typ)
     ∷ []
 
-  buildVarBody : Nat → Term
+  buildVarBody : ℕ → Term
   buildVarBody argLen =
     -- Embed.embed e (m x)
     `embed (var₀ (argLen + 4)) (var₁ (argLen + 1) (var₀ 0))
 
   buildBody : Name → Name
-            → List (Nat × Arg Type) → Type → Term
+            → List (ℕ × Arg Type) → Type → Term
   buildBody applyName conName argTypes resCtx =
     con conName $ map buildConArg argTypes
     where
@@ -127,7 +122,7 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
       `m = weaken argLen (var₀ 1)
       -- TODO: hArg ↦ unknown is maybe a problem? Γ, A could be visible
       -- Makes the ix:th constructor in the clause body.
-      buildConArg : (Nat × Arg Type) → Arg Term
+      buildConArg : (ℕ × Arg Type) → Arg Term
       buildConArg (ix , vArg t) = vArg $
         if inheritsScope (ix + 1) resCtx tmName (vArg t)
         then def₃ applyName `e (`extendN `e `m) (var₀ ix)
@@ -139,7 +134,7 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
     -- If a data type argument is a parameter,
     -- then we need to "redirect" the constructor argument
     -- to the corresponding one in the apply function.
-    conTyp ← redirectParams conName staticPartTel 3 0
+    conTyp ← redirectParams conName tmName staticTel 3 0
 
     -- conTel is the dynamic part of the telescope,
     -- which we get by decomposing the Tm constructor.
@@ -147,15 +142,15 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
       where _ → typeErrorS "Constructor doesn't produce Tm"
 
     let tel : Telescope
-        tel = staticPartTel ++ conTel
+        tel = staticTel ++ conTel
 
     let pat : List (Arg Pattern)
-        pat = weakenPats (length conTel) (telePat staticPartTel)
+        pat = weakenPats (length conTel) (telePat staticTel)
               ++ [ vArg (con conName (telePat conTel)) ]
 
     -- Constructor argument types and their de Bruijn indices in tel / conTel.
     -- Assumes all constructor args correspond to exactly one variable in pat.
-    let argTypes : List (Nat × Arg Type)
+    let argTypes : List (ℕ × Arg Type)
         argTypes = reverseCount (map proj₂ conTel)
 
     let body : Term
@@ -181,8 +176,8 @@ deriveSubst' : ∀ {Ty} {Tm : Deriv Ty} → Term → TC ⊤
 deriveSubst' {Typ} {Tm} tsHole = do
   `Typ ← quoteTC Typ
   `Tm ← quoteTC Tm
-  noConstraints $ checkType tsHole
-                            (def₂ (quote TermSubst) `Typ `Tm)
+  checkType tsHole (def₂ (quote TermSubst) `Typ `Tm)
+
   (def₀ tmName) ← normalise `Tm
     where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
 
@@ -201,12 +196,12 @@ macro deriveSubst = deriveSubst'
 
 module LA where
   buildClause : Type → Name → Name → Name → Telescope
-              → ((argLen : Nat) → Term)
-              → ((argLen : Nat) (ix : Nat) (funName : Name) → Term)
-              → Nat → Nat → Name → TC Clause
+              → ((argLen : ℕ) → Term)
+              → ((argLen : ℕ) (ix : ℕ) (funName : Name) → Term)
+              → ℕ → ℕ → Name → TC Clause
   buildClause `Typ tmName varName funName staticTel
               varBody inheritTerm resCtxIx resTypeIx conName = do
-    conTyp ← redirectParams conName staticTel resCtxIx resTypeIx
+    conTyp ← redirectParams conName tmName staticTel resCtxIx resTypeIx
 
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $ "Constructor doesn't produce Tm"
@@ -219,7 +214,7 @@ module LA where
               ++ [ vArg (con conName (telePat conTel)) ]
 
     -- Pairs of visible constructor arguments and their de Bruijn indices
-    let visibleArgTypes : List (Nat × Type)
+    let visibleArgTypes : List (ℕ × Type)
         visibleArgTypes = map (map₂ unArg)
                         ∘ boolFilter (λ {(_ , vArg _) → true ; _ → false })
                         ∘ reverseCount
@@ -240,7 +235,7 @@ module LA where
 
     where
       -- TODO: Congₙ only supports explicit arguments.
-      buildBody : Nat → Term → List (Nat × Type) → Type → Term
+      buildBody : ℕ → Term → List (ℕ × Type) → Type → Term
       buildBody conArgLen `argLen argTypes resCtx =
         -- congₙ n con ...
         `congₙ `argLen (con₀ conName) (map buildArg argTypes)
@@ -250,7 +245,7 @@ module LA where
           `congₙ n f xs = def (quote congₙ) (vArg n ∷ vArg f ∷ xs)
           `refl : Term
           `refl = con₀ (quote refl)
-          buildArg : (Nat × Type) → Arg Term
+          buildArg : (ℕ × Type) → Arg Term
           buildArg (ix , t) = vArg $
             if inheritsScope (ix + 1) resCtx tmName (vArg t)
             then inheritTerm conArgLen ix funName
@@ -275,11 +270,11 @@ buildApplyCong `Typ `ts tmName acHole = do
     `embed       = def₁ (quote CongAppArgs.embed)
     `extCongN    = def₂ (quote CongAppArgs.extCongN)
 
-    varBody : Nat → Term
+    varBody : ℕ → Term
     varBody argLen = `cong (`embed (var₀ (argLen + 6)))
                            (var₁ (argLen + 1) (var₀ 0))
 
-    inheritTerm : Nat → Nat → Name → Term
+    inheritTerm : ℕ → ℕ → Name → Term
     inheritTerm argLen ix funName =
       def₃ funName `ca (`extCongN `ca `m₁≗m₂) (var₀ ix)
       where `ca    = weaken argLen (var₀ 6)
@@ -303,8 +298,7 @@ deriveTSCong' {Typ} {Tm} {ts} tscHole = do
   `Typ ← quoteTC Typ
   `Tm ← quoteTC Tm
   `ts ← quoteTC ts
-  checkType tscHole $ def (quote TermSubstCong) $
-                      `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
+  checkType tscHole $ def (quote TermSubstCong) $ `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
   (def₀ tmName) ← normalise `Tm
     where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
 
@@ -342,10 +336,10 @@ buildApplyId `Typ `ts tmName aiHole = do
     `appExtCong = def (quote IdAppArgs.appExtCong)
 
     -- e+id=var ia x
-    varBody : Nat → Term
+    varBody : ℕ → Term
     varBody argLen = `e+id=var (var₀ (argLen + 2)) (var₀ 0)
 
-    inheritTerm : Nat → Nat → Name → Term
+    inheritTerm : ℕ → ℕ → Name → Term
     inheritTerm argLen ix funName =
       `trans
         -- appExtCong ia Γ tₙ
@@ -367,8 +361,7 @@ deriveTSId' {Typ} {Tm} {ts} tsiHole = do
   `Typ ← quoteTC Typ
   `Tm ← quoteTC Tm
   `ts ← quoteTC ts
-  checkType tsiHole $ def (quote TermSubstId) $
-                      `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
+  checkType tsiHole $ def (quote TermSubstId) $ `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
 
   (def₀ tmName) ← normalise `Tm
 

@@ -11,6 +11,7 @@ open import Reflection hiding (_≟_)
 open import Reflection.DeBruijn
 open import Reflection.Term
 open import Reflection.Traversal
+open import Reflection.Argument renaming (map to mapArg)
 
 debug : List ErrorPart → TC ⊤
 debug = debugPrint "tactic.substitution" 10
@@ -37,6 +38,30 @@ telView a                = [] , a
 
 weakenPats : (by : Nat) → List (Arg Pattern) → List (Arg Pattern)
 weakenPats = weakenFrom′ (traversePats applicative) 0
+
+--
+-- Following defintions are stolen from AgdaPrelude.
+--
+
+newMeta! : TC Term
+newMeta! = checkType unknown unknown
+
+getConstructors : Name → TC (List Name)
+getConstructors d =
+  getDefinition d >>= λ
+  { (data-type _ cs) → return cs
+  ; (record-type c _) → return (c ∷ [])
+  ; _ → typeError (strErr "Cannot get constructors of non-data or record type" ∷ nameErr d ∷ [])
+  }
+
+recordConstructor : Name → TC Name
+recordConstructor r =
+  getConstructors r >>= λ
+  { (c ∷ []) → return c
+  ; _ → typeError $ strErr "Cannot get constructor of non-record type" ∷ nameErr r ∷ [] }
+
+telePat : Telescope → List (Arg Pattern)
+telePat tel = zipWith (λ x (_ , a) → mapArg (const (var x)) a) (downFrom $ length tel) tel
 
 pattern var₀ x         = var x []
 pattern var₁ x a       = var x (vArg a ∷ [])

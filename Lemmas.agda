@@ -24,7 +24,7 @@ _≗ᴿ_ : (_ _ : Map _∋_ Γ Δ) → Set
 _≗ᴿ_ = Eq _∋_
 
 
-module TermAuxilliaries (Tm : Deriv) where
+module TermAuxiliaries (Tm : Deriv) where
   variable s₁ s₂ : Map Tm Γ Δ
   infix 4 _≗ᵀ_ _≗ˢ_
   _≗ˢ_ : (_ _ : Map Tm Γ Δ) → Set
@@ -32,7 +32,7 @@ module TermAuxilliaries (Tm : Deriv) where
   _≗ᵀ_ : (m₁ m₂ : ∀ {A} → Tm Γ A → Tm Δ A) → Set
   _≗ᵀ_ m₁ m₂ = ∀ {A} → m₁ {A} ≗ m₂ {A}
 
-module DrAuxilliaries (Dr : Deriv) where
+module DrAuxiliaries (Dr : Deriv) where
   variable d₁ d₂ : Map Dr Γ Δ
   infix 4 _≗ᴰ_
   _≗ᴰ_ : (_ _ : Map Dr Γ Δ) → Set
@@ -41,8 +41,8 @@ module DrAuxilliaries (Dr : Deriv) where
 -- A container of lemmas used by the applyCong function.
 record CongAppArgs {Dr Tm : Deriv} (e : Embed Dr Tm) : Set₁ where
   open Embed e public
-  open DrAuxilliaries Dr
-  open TermAuxilliaries Tm
+  open DrAuxiliaries Dr
+  open TermAuxiliaries Tm
 
   extCong : d₁ ≗ᴰ d₂ → ∀ {P} → extend d₁ {P} ≗ᴰ extend d₂
   extCong m₁≗m₂ (here refl) = refl
@@ -54,7 +54,7 @@ record CongAppArgs {Dr Tm : Deriv} (e : Embed Dr Tm) : Set₁ where
 
 record TermSubstCong {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
   open TermSubst ts
-  open TermAuxilliaries Tm
+  open TermAuxiliaries Tm
 
   field applyCong : ∀ {Dr : Deriv} {e : Embed Dr Tm} (ec : CongAppArgs e)
                   → ∀ {Γ Δ} {m₁ m₂ : Map Dr Γ Δ} → Eq Dr m₁ m₂
@@ -70,8 +70,8 @@ record TermSubstCong {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
 record IdAppArgs {Dr Tm : Deriv} (ts : TermSubst Tm) (e : Embed Dr Tm) : Set₁ where
   open TermSubst ts
   open Embed e public
-  open DrAuxilliaries Dr
-  open TermAuxilliaries Tm
+  open DrAuxiliaries Dr
+  open TermAuxiliaries Tm
 
   field tsc : TermSubstCong ts
   open TermSubstCong tsc using (applyCong)
@@ -95,7 +95,7 @@ record IdAppArgs {Dr Tm : Deriv} (ts : TermSubst Tm) (e : Embed Dr Tm) : Set₁ 
 record TermSubstId {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
   field tsCong : TermSubstCong ts
   open TermSubst ts
-  open TermAuxilliaries Tm
+  open TermAuxiliaries Tm
 
   field applyId : ∀ {Dr} {e : Embed Dr Tm} (ia : IdAppArgs ts e) {Γ}
                 → apply e {Γ} {Γ} (Embed.id e) ≗ᵀ Fun.id

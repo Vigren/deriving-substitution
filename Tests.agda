@@ -1,5 +1,6 @@
 module Tests where
-open import Prelude hiding (_+_ ; abs)
+open import Data.List.Base
+open import Data.Nat using (ℕ)
 
 infixr 6 _⇒_
 infixl 7 _+_
@@ -62,7 +63,7 @@ module ContextConcatenation where
 module Constant where
   data Tm (Γ : Context) : Type → Set where
     var : Γ ∋ A → Tm Γ A
-    con : Nat → Tm Γ A → Tm Γ A
+    con : ℕ → Tm Γ A → Tm Γ A
 
   ts : TermSubst Tm
   ts = deriveSubst
