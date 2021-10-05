@@ -26,6 +26,9 @@ module Double where
   tsi : TermSubstId ts
   tsi = deriveTSId
 
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
+
 module NoParam where
   data Tm : Context → Type → Set where
     var : Γ ∋ A → Tm Γ A
@@ -37,6 +40,9 @@ module NoParam where
   tsi : TermSubstId ts
   tsi = deriveTSId
 
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
+
 module TwoParam where
   data Tm (Γ : Context) (A : Type) : Set where
     var : Γ ∋ A → Tm Γ A
@@ -47,6 +53,9 @@ module TwoParam where
 
   tsi : TermSubstId ts
   tsi = deriveTSId
+
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
 
 -- For whole lists that normalizes to conses
 module ContextConcatenation where
@@ -60,6 +69,9 @@ module ContextConcatenation where
   tsi : TermSubstId ts
   tsi = deriveTSId
 
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
+
 module Constant where
   data Tm (Γ : Context) : Type → Set where
     var : Γ ∋ A → Tm Γ A
@@ -70,6 +82,9 @@ module Constant where
 
   tsi : TermSubstId ts
   tsi = deriveTSId
+
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
 
 -- A subterm that does not inherit parent scope
 module FreshScope where
@@ -83,6 +98,9 @@ module FreshScope where
   tsi : TermSubstId ts
   tsi = deriveTSId
 
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse
+
 module LetLetRec where
   data Tm (Γ : Context) : Type → Set where
     var : Γ ∋ A → Tm Γ A
@@ -94,3 +112,6 @@ module LetLetRec where
 
   tsi : TermSubstId ts
   tsi = deriveTSId
+
+  tsf : TermSubstFuse ts
+  tsf = deriveTSFuse

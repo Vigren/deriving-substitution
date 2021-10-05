@@ -99,22 +99,23 @@ module LemmasManual where
                ; applyVar = refl
                }
 
-  module TSF {Pos Pre Res} {ePos ePre} {eRes : Embed Res _⊢_} {s : Compose Pos Pre}(fa : FuseAppArgs manTs ePos ePre eRes s) where
+  module TSF {Pos Pre Res} {ePos ePre} {eRes : Embed Res _⊢_}
+             {c : Compose Pos Pre}(fa : FuseAppArgs manTs ePos ePre eRes c) where
     open FuseAppArgs fa
-    fuseApply : ∀ {Γ Δ Κ} {m₁ : Map Pos Δ Κ} {m₂ : Map Pre Γ Δ} {A}
-               → apply ePos m₁ ∘ apply ePre m₂
-               ≗ apply eRes (m₁ ⊙ m₂) {A}
-    fuseApply {m₂ = m₂} (var x) = fuseApplyVar {m₂ = m₂} x
+    fuseApply : ∀ {m₁ : Map Pre Γ Δ} {m₂ : Map Pos Δ Κ} {A}
+              → apply ePos m₂ ∘ apply ePre m₁
+              ≗ apply eRes (m₂ ⊙ m₁) {A}
+    fuseApply {m₁ = m₁} (var x) = varCase m₁ x
     fuseApply (nat x)           = refl
-    fuseApply (app x x₁)        = cong₂ app (fuseApply x) (fuseApply x₁)
-    fuseApply {Κ = Κ} (abs x)   = cong abs $
-                                  trans (fuseApply x) (applyFuseExtN {Κ = Κ} x)
-    fuseApply (left x)          = cong left (fuseApply x)
-    fuseApply (right x)         = cong right (fuseApply x)
-    fuseApply {Κ = Κ} (case x l→ x₁ r→ x₂) = congₙ 3 case_l→_r→_
-      (fuseApply x)
-      (trans (fuseApply x₁) (applyFuseExtN {Κ = Κ} x₁))
-      (trans (fuseApply x₂) (applyFuseExtN {Κ = Κ} x₂))
+    fuseApply (app t t₁)        = cong₂ app (fuseApply t) (fuseApply t₁)
+    fuseApply {Κ = Κ} (abs t)   = cong abs $
+                                  trans (fuseApply t) (applyFuseExtN Κ t)
+    fuseApply (left t)          = cong left (fuseApply t)
+    fuseApply (right t)         = cong right (fuseApply t)
+    fuseApply {Κ = Κ} (case t l→ t₁ r→ t₂) = congₙ 3 case_l→_r→_
+      (fuseApply t)
+      (trans (fuseApply t₁) (applyFuseExtN Κ t₁))
+      (trans (fuseApply t₂) (applyFuseExtN Κ t₂))
 
   tsf : TermSubstFuse manTs
   tsf = record { tsCong    = tsc
@@ -132,3 +133,6 @@ module LemmasGenerated where
 
   tsi : TermSubstId genTs
   tsi = deriveTSId
+
+  tsf : TermSubstFuse genTs
+  tsf = deriveTSFuse

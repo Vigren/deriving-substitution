@@ -75,7 +75,7 @@ record IdAppArgs {Dr Tm : Deriv} (ts : TermSubst Tm) (e : Embed Dr Tm) : Set₁ 
   field tsc : TermSubstCong ts
   open TermSubstCong tsc using (applyCong)
 
-  field weakenId : weaken {Γ} {B} {A} ∘ id ≡ id ∘ there
+  field weakenId : weaken {Γ} {A} {P} ∘ id ≡ id ∘ there
   field e+id=var : embed {Γ} ∘ id ≗ˢ var
 
   extId : ∀ {P} → extend {Γ} {Γ} id ≗ᴰ id {Γ = P ∷ Γ}
@@ -134,39 +134,42 @@ record FuseAppArgs {DPos DPre DRes Tm} (ts : TermSubst Tm)
   field tsc : TermSubstCong ts
   open TermSubstCong tsc using (applyCong)
 
-  -- The variable case of the fusion function.
-  field fuseApplyVar : ∀ {m₁ : Map DPos Δ Κ} {m₂ : Map DPre Γ Δ}
-                    → apply ePos m₁ ∘ apply ePre m₂ ∘ var
+  field fuseApplyVar : ∀ {m₁ : Map DPre Γ Δ} {m₂ : Map DPos Δ Κ}
+                    → apply ePos m₂ ∘ apply ePre m₁ ∘ var
                     -- ≗ˢ apply eRes (m₁ ⊙ m₂) ∘ var
-                    ≗ˢ embed ∘ (m₁ ⊙ m₂)
+                    ≗ˢ embed ∘ (m₂ ⊙ m₁)
 
-  field zeroExtend : ∀ {m : Map DPos Γ Δ} {m₂ : Map DPre Κ Γ} {P}
-               → (extendPos m {P} ⊙ extendPre m₂ {P}) (here refl)
-               ≡ extendRes (m ⊙ m₂) (here refl)
+  varCase : ∀ (m₁ : Map DPre Γ Δ) {m₂ : Map DPos Δ Κ}
+            → apply ePos m₂ ∘ apply ePre m₁ ∘ var ≗ˢ embed ∘ (m₂ ⊙ m₁)
+  varCase m₁ = fuseApplyVar {m₁ = m₁}
 
-  field sucExtend : ∀ {m₁ : Map DPos Δ Κ} {m₂ : Map DPre Γ Δ} {P}
-                  → extendPos m₁ {P} ⊙ (weakenPre ∘ m₂)
-                  ≗ᴰ weakenRes ∘ (m₁ ⊙ m₂)
+  field zeroExtend : ∀ {m₁ : Map DPre Γ Δ} {m₂ : Map DPos Δ Κ} {P}
+                   → (extendPos m₂ {P} ⊙ extendPre m₁ {P}) (here refl)
+                   ≡ extendRes (m₂ ⊙ m₁) (here refl)
 
-  fuseExtN : ∀ {m₁ : Map DPos Δ Κ} {m₂ : Map DPre Γ Δ} (Pre)
-           → extendNPos m₁ {Pre = Pre} ⊙ extendNPre m₂ {Pre = Pre}
-           ≗ᴰ extendNRes (m₁ ⊙ m₂) {Pre = Pre}
+  field sucExtend : ∀ {m₁ : Map DPre Γ Δ} {m₂ : Map DPos Δ Κ} {P}
+                  → extendPos m₂ {P} ⊙ (weakenPre ∘ m₁)
+                  ≗ᴰ weakenRes ∘ (m₂ ⊙ m₁)
+
+  fuseExtN : ∀ {m₁ : Map DPre Γ Δ} {m₂ : Map DPos Δ Κ} (Pre)
+           → extendNPos m₂ {Pre = Pre} ⊙ extendNPre m₁ {Pre = Pre}
+           ≗ᴰ extendNRes (m₂ ⊙ m₁) {Pre = Pre}
   fuseExtN [] _                = refl
-  fuseExtN (_ ∷ _) (here refl) = zeroExtend {m₂ = idPre}
+  fuseExtN (_ ∷ _) (here refl) = zeroExtend {m₁ = idPre}
   fuseExtN {m₁ = m₁} {m₂} (P ∷ Ps) (there i) = begin
-      (extendNPos m₁ {P ∷ Ps} ⊙ extendNPre m₂ {P ∷ Ps}) (there i)
-          ≡⟨ sucExtend {m₂ = extendNPre m₂ {Ps}} i ⟩
-      weakenRes ((extendNPos m₁ ⊙ extendNPre m₂) i)
+      (extendNPos m₂ {P ∷ Ps} ⊙ extendNPre m₁ {P ∷ Ps}) (there i)
+          ≡⟨ sucExtend {m₁ = extendNPre m₁ {Ps}} i ⟩
+      weakenRes ((extendNPos m₂ ⊙ extendNPre m₁) i)
           ≡⟨ cong weakenRes (fuseExtN Ps i) ⟩
-      weakenRes (extendNRes (m₁ ⊙ m₂) {Ps} i)
+      weakenRes (extendNRes (m₂ ⊙ m₁) {Ps} i)
           ≡⟨⟩
-      extendNRes (m₁ ⊙ m₂) {P ∷ Ps} (there i) ∎
+      extendNRes (m₂ ⊙ m₁) {P ∷ Ps} (there i) ∎
 
   -- Scope inheriting case of fusion function
-  applyFuseExtN : ∀ {m₁ : Map DPos Δ Κ} {m₂ : Map DPre Γ Δ} {Pre}
-                 → apply eRes (extendNPos m₁ ⊙ extendNPre m₂)
-                 ≗ᵀ apply eRes (extendNRes (m₁ ⊙ m₂) {Pre})
-  applyFuseExtN {Δ} t = applyCong _ (fuseExtN {Δ = Δ} _) t
+  applyFuseExtN : ∀ {Γ} {Δ} (Κ) {m₁ : Map DPre Γ Δ} {m₂ : Map DPos Δ Κ} {Pre}
+                 → apply eRes (extendNPos m₂ ⊙ extendNPre m₁)
+                 ≗ᵀ apply eRes (extendNRes (m₂ ⊙ m₁) {Pre})
+  applyFuseExtN Κ t = applyCong _ (fuseExtN {Κ = Κ} _) t
 
 
 record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
@@ -179,10 +182,10 @@ record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
 
   field fuse : ∀ {Pos Pre Res}
                  {ePos : Embed Pos Tm} {ePre : Embed Pre Tm} {eRes : Embed Res Tm}
-                 {s : Compose Pos Pre}
-                 (ca : FuseAppArgs ts ePos ePre eRes s) → let open Compose s in
-               ∀ {Γ Δ Κ} {m₁ : Map Pos Δ Κ} {m₂ : Map Pre Γ Δ}
-               → apply ePos m₁ ∘ apply ePre m₂ ≗ᵀ apply eRes (m₁ ⊙ m₂)
+                 {c : Compose Pos Pre}
+                 (ca : FuseAppArgs ts ePos ePre eRes c) → let open Compose c in
+               ∀ {Γ Δ Κ} {m₁ : Map Pre Γ Δ} {m₂ : Map Pos Δ Κ}
+               → apply ePos m₂ ∘ apply ePre m₁ ≗ᵀ apply eRes (m₂ ⊙ m₁)
 
   field applyVar : ∀ {Dr : Deriv} {e : Embed Dr Tm} {Γ Δ} {m : Map Dr Γ Δ} {A}
                  → apply e m ∘ var ≡ Embed.embed e ∘ m {A}
@@ -190,7 +193,7 @@ record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
   caVar : ∀ {Dr} {e : Embed Dr Tm} → FuseAppArgs ts e varEmbed e preVarComp
   caVar {e = e} = record
                   { tsc          = tsCong
-                  ; fuseApplyVar = λ {_} {_} {_} {m} {r} i → begin
+                  ; fuseApplyVar = λ {_} {_} {_} {r} {m} i → begin
                                 apply e m (rename r (var i))
                                       ≡⟨ cong (apply e m) (cong-app applyVar i) ⟩
                                 apply e m (var (r i))
@@ -200,9 +203,9 @@ record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
                   ; sucExtend  = λ _ → refl
                   }
 
-  ren-ren : rename r₁ ∘ rename r₂ ≗ᵀ rename (r₁ ∘ r₂)
+  ren-ren : rename r₂ ∘ rename r₁ ≗ᵀ rename (r₂ ∘ r₁)
   ren-ren = fuse caVar
-  sub-ren : subst s₁ ∘ rename r₂ ≗ᵀ subst (s₁ ∘ r₂)
+  sub-ren : subst s₂ ∘ rename r₁ ≗ᵀ subst (s₂ ∘ r₁)
   sub-ren = fuse caVar
 
   renWeakenCom : rename (varExtend r₁ {P}) ∘ rename there
@@ -220,11 +223,11 @@ record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
                    ; sucExtend    = renWeakenCom ∘ _
                    }
 
-  ren-sub : rename r₁ ∘ subst s₂ ≗ᵀ subst (rename r₁ ∘ s₂)
+  ren-sub : rename r₂ ∘ subst s₁ ≗ᵀ subst (rename r₂ ∘ s₁)
   ren-sub = fuse caVarTm
 
   subWeakenCom : subst (tmExtend s₁ {P}) ∘ rename there
-                ≗ᵀ rename there ∘ subst s₁
+               ≗ᵀ rename there ∘ subst s₁
   subWeakenCom {s₁ = s₁} t = begin
     (subst (tmExtend s₁) ∘ rename there) t ≡⟨ sub-ren t ⟩
     subst (tmExtend s₁ ∘ there) t          ≡⟨⟩
@@ -238,5 +241,5 @@ record TermSubstFuse {Tm : Deriv} (ts : TermSubst Tm) : Set₁ where
                   ; sucExtend    = subWeakenCom ∘ _
                   }
 
-  sub-sub : subst s₁ ∘ subst s₂ ≗ᵀ subst (subst s₁ ∘ s₂)
+  sub-sub : subst s₂ ∘ subst s₁ ≗ᵀ subst (subst s₂ ∘ s₁)
   sub-sub = fuse caTmTm

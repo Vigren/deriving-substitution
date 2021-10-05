@@ -88,6 +88,10 @@ module Quoted (`Typ : Type) where
   `Deriv     = def₁ (quote Deriv) `Typ
   `Embed     = def₃ (quote Embed) `Typ
   `Map       = def₄ (quote Map) `Typ
+  `Eq        = def₄ (quote Lemmas.Eq) `Typ
+  `Compose   = def₃ (quote Compose) `Typ
+  `trans     = def₂ (quote trans)
+  `apply     = def₂ (quote TermSubst.apply)
 
 module TS (`Typ : Type) (tmName : Name) (varName : Name) where
   open Quoted `Typ
@@ -165,7 +169,6 @@ module TS (`Typ : Type) (tmName : Name) (varName : Name) where
     applyName ← freshName "applyGenerated"
     inferType applyHole >>= declareDef (vArg applyName)
 
-    -- TODO: Prepend constructor name to error stack?
     clauses ← forA conNames $ buildClause applyName
 
     defineFun applyName clauses
@@ -195,13 +198,16 @@ deriveSubst' {Typ} {Tm} tsHole = do
 macro deriveSubst = deriveSubst'
 
 module LA where
+  -- Build function for lemma proofs
+  --   srcCtxIx srcTypeIx should point to respective indices in the
+  --   static telescope of the function.
   buildClause : Type → Name → Name → Name → Telescope
               → ((argLen : ℕ) → Term)
               → ((argLen : ℕ) (ix : ℕ) (funName : Name) → Term)
               → ℕ → ℕ → Name → TC Clause
   buildClause `Typ tmName varName funName staticTel
-              varBody inheritTerm resCtxIx resTypeIx conName = do
-    conTyp ← redirectParams conName tmName staticTel resCtxIx resTypeIx
+              varBody inheritTerm srcCtxIx srcTypeIx conName = do
+    conTyp ← redirectParams conName tmName staticTel srcCtxIx srcTypeIx
 
     conTel , (def₂ _ resCtx resTyp) ← return $ telView conTyp
       where _ → typeErrorS $ "Constructor doesn't produce Tm"
@@ -265,7 +271,6 @@ buildApplyCong `Typ `ts tmName acHole = do
   where
     open Quoted `Typ
     `CongAppArgs = def₂ (quote CongAppArgs) `Typ
-    `Eq          = def₄ (quote Lemmas.Eq) `Typ
     `cong        = def₂ (quote cong)
     `embed       = def₁ (quote CongAppArgs.embed)
     `extCongN    = def₂ (quote CongAppArgs.extCongN)
@@ -329,9 +334,6 @@ buildApplyId `Typ `ts tmName aiHole = do
   where
     open Quoted `Typ
     `IdAppArgs = def₃ (quote IdAppArgs) `Typ
-    `Eq        = def₄ (quote Lemmas.Eq) `Typ
-    `trans     = def₂ (quote trans)
-    `apply     = def₂ (quote TermSubst.apply)
     `e+id=var  = def₂ (quote IdAppArgs.e+id=var)
     `appExtCong = def (quote IdAppArgs.appExtCong)
 
@@ -377,3 +379,73 @@ deriveTSId' {Typ} {Tm} {ts} tsiHole = do
   buildApplyId `Typ `ts tmName applyIdHole
 
 macro deriveTSId = deriveTSId'
+
+buildApplyFuse : Type → Term → Name → Term → TC ⊤
+buildApplyFuse `Typ `ts tmName fuseHole = do
+  fuseName ← freshName "fuseGenerated"
+  inferType fuseHole >>= declareDef (vArg fuseName)
+
+  varName ← normalise `ts >>= getVarNameFromTs
+
+  conNames ← getConstructors tmName
+  clauses ← forA conNames $ LA.buildClause `Typ tmName varName fuseName staticTel
+                                           varBody inheritTerm 5 0
+  defineFun fuseName clauses
+  unify fuseHole (def₀ fuseName)
+
+  where
+    open Quoted `Typ
+    `FuseAppArgs   = def (quote FuseAppArgs) ∘ (`Typ ⟨∷⟩_)
+    `varCase       = def₃ (quote FuseAppArgs.varCase)
+    `applyFuseExtN = def (quote FuseAppArgs.applyFuseExtN)
+
+    -- varCase fa preMap x
+    varBody : ℕ → Term
+    varBody argLen = `varCase (var₀ (argLen + 6)) (var₀ (argLen + 2)) (var₀ 0)
+
+    inheritTerm : ℕ → ℕ → Name → Term
+    inheritTerm argLen ix funName =
+      `trans
+        -- fuseApply fa tₙ
+        (def₂ funName (var₀ (argLen + 6)) (var₀ ix))
+        -- applyFuseExtN fa Κ tₙ
+        (`applyFuseExtN $ var₀ (argLen + 6) ⟨∷⟩ var₀ (argLen + 3) ⟨∷⟩ var₀ ix ⟨∷⟩ [])
+
+    staticTel = ("Pos" , hArg `Deriv)
+              ∷ ("Pre" , hArg `Deriv)
+              ∷ ("Res" , hArg `Deriv)
+              ∷ ("ePos" , hArg unknown)
+              ∷ ("ePre" , hArg unknown)
+              ∷ ("eRes" , hArg (`Embed (var₀ 2) (def₀ tmName)))
+              ∷ ("c" , hArg (`Compose (var₀ 5) (var₀ 4)))
+              ∷ ("fa" , vArg (`FuseAppArgs
+                       (`ts ⟨∷⟩ var₀ 3 ⟨∷⟩ var₀ 2 ⟨∷⟩ var₀ 1 ⟨∷⟩ var₀ 0 ⟨∷⟩ [])))
+              ∷ ("Γ" , hArg `Context)
+              ∷ ("Δ" , hArg `Context)
+              ∷ ("Κ" , hArg `Context)
+              ∷ ("preMap" , hArg (`Map (var₀ 9) (var₀ 2) (var₀ 1)))
+              ∷ ("posMap" , hArg (`Map (var₀ 11) (var₀ 2) (var₀ 1)))
+              ∷ ("T" , hArg `Typ)
+              ∷ []
+
+deriveTSFuse' : ∀ {Typ} {Tm} {ts : TermSubst Typ Tm}
+            → Term → TC ⊤
+deriveTSFuse' {Typ} {Tm} {ts} tsfHole = do
+  `Typ ← quoteTC Typ
+  `Tm ← quoteTC Tm
+  `ts ← quoteTC ts
+  checkType tsfHole $ def (quote TermSubstFuse) $ `Typ ⟨∷⟩ `Tm ⟅∷⟆ `ts ⟨∷⟩ []
+
+  (def₀ tmName) ← normalise `Tm
+    where _ → typeErrorS "Couldn't infer Tm to a be concrete data type."
+
+  fuseHole ← newMeta!
+  tscHole ← newMeta!
+  tsfCon ← recordConstructor $ (quote TermSubstFuse)
+  unify tsfHole $ con₃ tsfCon tscHole fuseHole (con₀ (quote refl))
+
+  deriveTSCong' {ts = ts} tscHole
+
+  buildApplyFuse `Typ `ts tmName fuseHole
+
+macro deriveTSFuse = deriveTSFuse'
