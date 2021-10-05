@@ -1,9 +1,9 @@
 module Substitution (Type : Set) where
-open import Agda.Builtin.Equality using (refl)
 open import Data.List
 open import Data.List.Membership.Propositional
 open import Data.List.Relation.Unary.Any using (here; there)
 open import Function as Fun using (flip ; _∘_)
+open import Relation.Binary.PropositionalEquality.Core using (refl)
 
 Context : Set
 Context = List Type
@@ -45,16 +45,6 @@ record Simple (Dr : Deriv) : Set where
   wk : Map Dr Γ (P ∷ Γ)
   wk {Γ = _ ∷ _} = weaken ∘ id
 
-record Subst (Dr : Deriv) : Set where
-  field
-    simple : Simple Dr
-    app : Map Dr Γ Δ → ∀ {A} → Dr Γ A → Dr Δ A
-
-  open Simple simple public
-
-  _⊙_ : Map Dr Δ Κ → Map Dr Γ Δ → Map Dr Γ Κ
-  Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
-
 record Embed (Dr₁ Dr₂ : Deriv) : Set where
   field
     simple : Simple Dr₁
@@ -62,13 +52,18 @@ record Embed (Dr₁ Dr₂ : Deriv) : Set where
 
   open Simple simple public
 
-varSubst : Subst _∋_
-varSubst = record { simple = record
-                    { id     = Fun.id
-                    ; weaken = there
-                    }
-                  ; app = Fun.id
-                  }
+-- Composability of (not necessarily same-type) maps.
+record Compose (Pos Pre : Deriv) {Res : Deriv} : Set where
+  field
+    app : Map Pos Γ Δ → ∀ {A} → Pre Γ A → Res Δ A
+
+  infixl 9 _⊙_
+  _⊙_ : Map Pos Δ Κ → Map Pre Γ Δ → Map Res Γ Κ
+  Κ←Δ ⊙ Δ←Γ = app Κ←Δ ∘ Δ←Γ
+
+varSimple = record { id     = Fun.id
+                   ; weaken = there
+                   }
 
 record TermSubst (Tm : Deriv) : Set₁ where
   field
@@ -79,7 +74,7 @@ record TermSubst (Tm : Deriv) : Set₁ where
           → Tm Δ A
 
   varEmbed : Embed _∋_ Tm
-  varEmbed = record { simple = Subst.simple varSubst
+  varEmbed = record { simple = varSimple
                     ; embed  = var
                     }
 
@@ -96,7 +91,8 @@ record TermSubst (Tm : Deriv) : Set₁ where
   subst : Map Tm Γ Δ → ∀ {A} → Tm Γ A → Tm Δ A
   subst = apply tmEmbed
 
-  tmSubst : Subst Tm
-  tmSubst = record { simple = Embed.simple tmEmbed
-                   ; app    = subst
-                   }
+  preVarComp : ∀ {Dr} → Compose Dr _∋_
+  preVarComp = record { app = Fun.id }
+
+  preTmComp : ∀ {Dr} {e : Embed Dr Tm} → Compose Dr Tm
+  preTmComp {e = e} = record { app = apply e }

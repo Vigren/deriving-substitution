@@ -99,6 +99,29 @@ module LemmasManual where
                ; applyVar = refl
                }
 
+  module TSF {Pos Pre Res} {ePos ePre} {eRes : Embed Res _⊢_} {s : Compose Pos Pre}(fa : FuseAppArgs manTs ePos ePre eRes s) where
+    open FuseAppArgs fa
+    fuseApply : ∀ {Γ Δ Κ} {m₁ : Map Pos Δ Κ} {m₂ : Map Pre Γ Δ} {A}
+               → apply ePos m₁ ∘ apply ePre m₂
+               ≗ apply eRes (m₁ ⊙ m₂) {A}
+    fuseApply {m₂ = m₂} (var x) = fuseApplyVar {m₂ = m₂} x
+    fuseApply (nat x)           = refl
+    fuseApply (app x x₁)        = cong₂ app (fuseApply x) (fuseApply x₁)
+    fuseApply {Κ = Κ} (abs x)   = cong abs $
+                                  trans (fuseApply x) (applyFuseExtN {Κ = Κ} x)
+    fuseApply (left x)          = cong left (fuseApply x)
+    fuseApply (right x)         = cong right (fuseApply x)
+    fuseApply {Κ = Κ} (case x l→ x₁ r→ x₂) = congₙ 3 case_l→_r→_
+      (fuseApply x)
+      (trans (fuseApply x₁) (applyFuseExtN {Κ = Κ} x₁))
+      (trans (fuseApply x₂) (applyFuseExtN {Κ = Κ} x₂))
+
+  tsf : TermSubstFuse manTs
+  tsf = record { tsCong    = tsc
+               ; fuse      = TSF.fuseApply
+               ; applyVar  = refl
+               }
+
 module LemmasGenerated where
   open import Lemmas (Type)
   open import Tactic
